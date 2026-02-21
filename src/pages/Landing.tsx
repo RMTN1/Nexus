@@ -1,26 +1,32 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import Grid3D from "@/components/Grid3D";
 import WireframeRoom from "@/components/WireframeRoom";
 
-// ── Time-of-day theme ─────────────────────────────────────────────────────────
-type Theme = { orb: string; grid: string };
+// ── Brand color ───────────────────────────────────────────────────────────────
+const NODE_COLOR = "#60a5fa"; // Primary Blue (Silicon) — matches favicon + CLAUDE.md
 
-function getTimeTheme(): Theme {
-  const h = new Date().getHours();
-  if (h >= 5  && h < 10) return { orb: "#FB923C", grid: "#F59E0B" }; // dawn
-  if (h >= 10 && h < 17) return { orb: "#4AADDC", grid: "#4AADDC" }; // day
-  if (h >= 17 && h < 20) return { orb: "#C084FC", grid: "#F97316" }; // dusk
-  return { orb: "#4AADDC", grid: "#4AADDC" };                         // night
-}
+// ── Spawn nodes for transition animation ─────────────────────────────────────
+// 12 nodes: [angleDeg, distanceFraction (fraction of half-viewport)]
+const SPAWN_NODES: Array<{ angle: number; dist: number; r: number }> = [
+  { angle:   0, dist: 0.50, r: 5 },
+  { angle:  30, dist: 0.60, r: 4 },
+  { angle:  60, dist: 0.44, r: 5 },
+  { angle:  90, dist: 0.56, r: 6 },
+  { angle: 120, dist: 0.64, r: 4 },
+  { angle: 150, dist: 0.48, r: 5 },
+  { angle: 180, dist: 0.52, r: 4 },
+  { angle: 210, dist: 0.58, r: 5 },
+  { angle: 240, dist: 0.42, r: 4 },
+  { angle: 270, dist: 0.54, r: 6 },
+  { angle: 300, dist: 0.62, r: 4 },
+  { angle: 330, dist: 0.46, r: 5 },
+];
 
 // ── Transition state machine ──────────────────────────────────────────────────
 type TransitionState = "landing" | "orb-expanding" | "portal" | "dashboard" | "returning";
 
 export default function Landing() {
-  const theme = useMemo(getTimeTheme, []);
-
   const [orbHovered, setOrbHovered] = useState(false);
   const [stage, setStage] = useState(0);
   const [transitionState, setTransitionState] = useState<TransitionState>("landing");
@@ -29,7 +35,7 @@ export default function Landing() {
   useEffect(() => {
     const t = [
       setTimeout(() => setStage(1), 100),   // grid materialises
-      setTimeout(() => setStage(2), 800),   // orb appears
+      setTimeout(() => setStage(2), 800),   // node appears
       setTimeout(() => setStage(3), 1400),  // branding appears
     ];
     return () => t.forEach(clearTimeout);
@@ -52,10 +58,9 @@ export default function Landing() {
     setTimeout(() => setTransitionState("landing"), 950);
   };
 
-  const orbColor = orbHovered ? theme.orb : theme.grid;
-  const isLandingVisible = transitionState === "landing" || transitionState === "orb-expanding";
+  const isLandingVisible  = transitionState === "landing" || transitionState === "orb-expanding";
   const isDashboardVisible = transitionState === "portal" || transitionState === "dashboard" || transitionState === "returning";
-  const isOverlayVisible = transitionState === "orb-expanding" || transitionState === "returning";
+  const isNodeSpawning    = transitionState === "orb-expanding";
 
   return (
     <div
@@ -63,7 +68,7 @@ export default function Landing() {
       style={{ background: "#1C1C1E" }}
     >
 
-      {/* ── Landing content (grid + orb + branding) ──────────────────────────── */}
+      {/* ── Landing content (grid + node + branding) ──────────────────────────── */}
       <AnimatePresence>
         {isLandingVisible && (
           <motion.div
@@ -81,7 +86,7 @@ export default function Landing() {
               <Grid3D position="absolute" />
             </motion.div>
 
-            {/* ── Central Orb ──────────────────────────────────────────────── */}
+            {/* ── Central Network Node ─────────────────────────────────────── */}
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
               initial={{ opacity: 0, scale: 0.6 }}
@@ -92,41 +97,87 @@ export default function Landing() {
                 onClick={handleOrbClick}
                 onHoverStart={() => setOrbHovered(true)}
                 onHoverEnd={() => setOrbHovered(false)}
-                whileHover={{ scale: 1.12 }}
+                whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.92 }}
                 disabled={transitionState !== "landing"}
-                className="relative w-24 h-24 md:w-32 md:h-32 rounded-full cursor-pointer focus:outline-none"
+                className="relative w-28 h-28 md:w-36 md:h-36 cursor-pointer focus:outline-none"
                 style={{
-                  background: `radial-gradient(circle at 35% 35%, ${orbColor}, ${orbHovered ? "#1a5a80" : "#0e3a5c"})`,
-                  boxShadow: `
-                    0 0 40px ${orbColor}88,
-                    0 0 80px ${orbColor}44,
-                    inset 0 0 30px rgba(255,255,255,0.12)
-                  `,
-                  transition: "background 0.4s ease, box-shadow 0.4s ease",
+                  background: "none",
+                  border: "none",
+                  filter: orbHovered
+                    ? `drop-shadow(0 0 18px ${NODE_COLOR}) drop-shadow(0 0 40px ${NODE_COLOR}66)`
+                    : `drop-shadow(0 0 8px ${NODE_COLOR}88)`,
+                  transition: "filter 0.4s ease",
                 }}
+                aria-label="Enter Nexus"
               >
-                <div
-                  className="absolute inset-3 rounded-full"
-                  style={{ background: "radial-gradient(circle at 38% 35%, rgba(255,255,255,0.35), transparent 55%)" }}
-                />
-                <Sparkles className="absolute inset-0 m-auto w-8 h-8 md:w-10 md:h-10 text-white/70" />
+                <svg
+                  viewBox="0 0 100 100"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  className="w-full h-full"
+                >
+                  <defs>
+                    <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="2.5" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
 
-                <motion.span
-                  className="absolute inset-0 rounded-full border"
-                  style={{ borderColor: orbColor }}
-                  animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-                <motion.span
-                  className="absolute inset-0 rounded-full border"
-                  style={{ borderColor: orbColor }}
-                  animate={{ scale: [1, 2], opacity: [0.4, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
-                />
+                  {/* ── Animated ripple rings from central ring ── */}
+                  <motion.circle
+                    cx="50" cy="50"
+                    stroke={NODE_COLOR}
+                    strokeWidth="1.5"
+                    fill="none"
+                    animate={{ r: [11, 32], opacity: [0.6, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                  />
+                  <motion.circle
+                    cx="50" cy="50"
+                    stroke={NODE_COLOR}
+                    strokeWidth="1"
+                    fill="none"
+                    animate={{ r: [11, 44], opacity: [0.4, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
+                  />
+
+                  {/* ── Diagonal connection lines ── */}
+                  <line x1="50" y1="50" x2="78" y2="22" stroke={NODE_COLOR} strokeWidth="1.5" opacity="0.5" filter="url(#node-glow)" />
+                  <line x1="50" y1="50" x2="22" y2="78" stroke={NODE_COLOR} strokeWidth="1.5" opacity="0.5" filter="url(#node-glow)" />
+                  <line x1="50" y1="50" x2="78" y2="78" stroke={NODE_COLOR} strokeWidth="1.5" opacity="0.5" filter="url(#node-glow)" />
+                  <line x1="50" y1="50" x2="22" y2="22" stroke={NODE_COLOR} strokeWidth="1.5" opacity="0.5" filter="url(#node-glow)" />
+
+                  {/* ── Cardinal connection lines ── */}
+                  <line x1="50" y1="39" x2="50" y2="13" stroke={NODE_COLOR} strokeWidth="2.5" opacity="0.85" filter="url(#node-glow)" />
+                  <line x1="61" y1="50" x2="87" y2="50" stroke={NODE_COLOR} strokeWidth="2.5" opacity="0.85" filter="url(#node-glow)" />
+                  <line x1="50" y1="61" x2="50" y2="87" stroke={NODE_COLOR} strokeWidth="2.5" opacity="0.85" filter="url(#node-glow)" />
+                  <line x1="39" y1="50" x2="13" y2="50" stroke={NODE_COLOR} strokeWidth="2.5" opacity="0.85" filter="url(#node-glow)" />
+
+                  {/* ── Outer cardinal nodes ── */}
+                  <circle cx="50" cy="10" r="5.5" fill={NODE_COLOR} filter="url(#node-glow)" />
+                  <circle cx="90" cy="50" r="5.5" fill={NODE_COLOR} filter="url(#node-glow)" />
+                  <circle cx="50" cy="90" r="5.5" fill={NODE_COLOR} filter="url(#node-glow)" />
+                  <circle cx="10" cy="50" r="5.5" fill={NODE_COLOR} filter="url(#node-glow)" />
+
+                  {/* ── Outer diagonal nodes (smaller) ── */}
+                  <circle cx="80" cy="20" r="3.5" fill={NODE_COLOR} opacity="0.65" />
+                  <circle cx="20" cy="80" r="3.5" fill={NODE_COLOR} opacity="0.65" />
+                  <circle cx="80" cy="80" r="3.5" fill={NODE_COLOR} opacity="0.65" />
+                  <circle cx="20" cy="20" r="3.5" fill={NODE_COLOR} opacity="0.65" />
+
+                  {/* ── Central ring ── */}
+                  <circle cx="50" cy="50" r="11" stroke={NODE_COLOR} strokeWidth="2.5" filter="url(#node-glow)" />
+
+                  {/* ── Central fill dot ── */}
+                  <circle cx="50" cy="50" r="4.5" fill={NODE_COLOR} filter="url(#node-glow)" />
+                </svg>
               </motion.button>
 
-              {/* Rays on hover */}
+              {/* ── Hover rays ── */}
               <AnimatePresence>
                 {orbHovered && (
                   <motion.div
@@ -142,7 +193,7 @@ export default function Landing() {
                         style={{
                           width: "2px",
                           height: "180px",
-                          background: `linear-gradient(to top, transparent, ${orbColor}55, transparent)`,
+                          background: `linear-gradient(to top, transparent, ${NODE_COLOR}55, transparent)`,
                           transform: `rotate(${i * (360 / 14)}deg)`,
                         }}
                         initial={{ scaleY: 0, opacity: 0 }}
@@ -159,7 +210,7 @@ export default function Landing() {
             {/* ── Top-center branding ──────────────────────────────────────── */}
             <motion.div
               className="absolute top-6 inset-x-0 flex justify-center items-center gap-3 text-lg tracking-wider pointer-events-none"
-              style={{ color: "rgba(74,173,220,0.9)" }}
+              style={{ color: `${NODE_COLOR}cc` }}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: stage >= 3 ? 1 : 0, y: stage >= 3 ? 0 : -10 }}
               transition={{ duration: 0.8 }}
@@ -167,30 +218,87 @@ export default function Landing() {
               <img src="/favicon.svg?v=2" alt="Nexus Logo" className="w-7 h-7" />
               <span className="font-light uppercase tracking-[0.2em]">Nexus</span>
             </motion.div>
+
+            {/* ── Click hint ───────────────────────────────────────────────── */}
+            <motion.p
+              className="absolute bottom-10 inset-x-0 text-center text-xs font-mono tracking-widest uppercase pointer-events-none"
+              style={{ color: `${NODE_COLOR}44` }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: stage >= 3 ? 1 : 0 }}
+              transition={{ duration: 1, delay: 0.4 }}
+            >
+              tap to enter
+            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Portal overlay — orb-colored circle expands to fill screen ───────── */}
+      {/* ── Node-spawn overlay — network expands outward on transition ─────────── */}
       <AnimatePresence>
-        {isOverlayVisible && (
+        {isNodeSpawning && (
           <motion.div
-            key="portal-overlay"
-            className="fixed rounded-full pointer-events-none"
-            style={{
-              width: 128,
-              height: 128,
-              top: "50%",
-              left: "50%",
-              marginTop: -64,
-              marginLeft: -64,
-              background: transitionState === "orb-expanding" ? orbColor : "#1C1C1E",
-              zIndex: 100,
-            }}
-            initial={{ scale: transitionState === "orb-expanding" ? 1 : 40 }}
-            animate={{ scale: transitionState === "orb-expanding" ? 40 : 1 }}
-            transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
-          />
+            key="node-spawn-overlay"
+            className="fixed inset-0 pointer-events-none"
+            style={{ zIndex: 50 }}
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.3, delay: 0.3 } }}
+          >
+            <svg
+              width="100%"
+              height="100%"
+              style={{ position: "absolute", inset: 0, overflow: "visible" }}
+            >
+              {SPAWN_NODES.map((node, i) => {
+                const rad = (node.angle - 90) * (Math.PI / 180);
+                // Distance in vw units (using 50vw as half-width reference)
+                const tx = `calc(50vw + ${Math.cos(rad) * node.dist * 50}vw)`;
+                const ty = `calc(50vh + ${Math.sin(rad) * node.dist * 50}vh)`;
+                return (
+                  <g key={i}>
+                    {/* Line from center to node */}
+                    <motion.line
+                      x1="50%"
+                      y1="50%"
+                      x2="50%"
+                      y2="50%"
+                      stroke={NODE_COLOR}
+                      strokeWidth="1"
+                      strokeOpacity="0.35"
+                      initial={{ x2: "50%", y2: "50%", opacity: 0 }}
+                      animate={{
+                        x2: tx,
+                        y2: ty,
+                        opacity: 0.35,
+                      }}
+                      transition={{
+                        duration: 0.55,
+                        delay: i * 0.04,
+                        ease: "easeOut",
+                      }}
+                    />
+                    {/* Outer node circle */}
+                    <motion.circle
+                      r={node.r}
+                      fill={NODE_COLOR}
+                      style={{ filter: `drop-shadow(0 0 6px ${NODE_COLOR})` }}
+                      initial={{ cx: "50%", cy: "50%", scale: 0, opacity: 0 }}
+                      animate={{
+                        cx: tx,
+                        cy: ty,
+                        scale: 1,
+                        opacity: 0.75,
+                      }}
+                      transition={{
+                        duration: 0.55,
+                        delay: i * 0.04,
+                        ease: "easeOut",
+                      }}
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, Wand2, Activity, ArrowLeft } from "lucide-react";
 import AppWindow, { type WallId } from "./AppWindow";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WireframeRoomProps {
   onBack?: () => void;
@@ -122,7 +123,7 @@ function WallSurface({
       </AnimatePresence>
 
       {/* Content */}
-      <div className="relative w-full h-full flex flex-wrap gap-3 p-6 pt-8 content-start items-start">
+      <div className="relative w-full h-full flex flex-wrap gap-3 p-4 md:p-6 pt-8 content-start items-start overflow-y-auto">
         {children}
       </div>
     </div>
@@ -176,6 +177,7 @@ const INITIAL_WINDOWS: WindowState[] = [
 ];
 
 export default function WireframeRoom({ onBack }: WireframeRoomProps) {
+  const isMobile = useIsMobile();
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
   const [dragging, setDragging] = useState(false);
   const [hoveredWall, setHoveredWall] = useState<WallId | null>(null);
@@ -186,11 +188,14 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
     );
   };
 
+  // On mobile all windows collapse to the back wall
+  const effectiveWall = (w: WindowState): WallId => (isMobile ? "back" : w.wall);
+
   const windowsOnWall = (wallId: WallId) =>
-    windows.filter((w) => w.wall === wallId);
+    windows.filter((w) => effectiveWall(w) === wallId);
 
   const wallHandlers = (wallId: WallId) =>
-    dragging
+    dragging && !isMobile
       ? {
           onPointerEnter: () => setHoveredWall(wallId),
           onPointerLeave: () => setHoveredWall(null),
@@ -199,7 +204,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
 
   const sharedWindowProps = {
     onMoveRequest: moveWindow,
-    onDragStart: () => setDragging(true),
+    onDragStart: () => !isMobile && setDragging(true),
     onDragEnd: () => {
       setDragging(false);
       setHoveredWall(null);
@@ -213,7 +218,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
     >
       {/* ── Minimal header ──────────────────────────────────────────────────── */}
       <motion.header
-        className="flex items-center justify-between px-5 py-3 shrink-0"
+        className="flex items-center justify-between px-4 md:px-5 py-3 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -232,8 +237,8 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
         </button>
 
         {/* Logo + title */}
-        <div className="flex items-center gap-3">
-          <img src="/favicon.svg?v=2" alt="Nexus" className="w-6 h-6" />
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/favicon.svg?v=2" alt="Nexus" className="w-5 h-5 md:w-6 md:h-6" />
           <span
             className="text-sm font-mono tracking-[0.25em] uppercase"
             style={{ color: `rgba(${ACCENT},0.85)` }}
@@ -243,62 +248,69 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
         </div>
 
         {/* Spacer */}
-        <div className="w-16" />
+        <div className="w-10 md:w-16" />
       </motion.header>
 
       {/* ── Room grid ───────────────────────────────────────────────────────── */}
       <motion.div
-        className="flex-1 grid"
+        className="flex-1"
         style={{
-          gridTemplateAreas: `
-            ".       ceiling  ."
-            "left    back     right"
-            ".       floor    ."
-          `,
-          gridTemplateColumns: "180px 1fr 180px",
-          gridTemplateRows: "110px 1fr 110px",
+          display: "grid",
+          gridTemplateAreas: isMobile
+            ? `"back"`
+            : `
+                ".       ceiling  ."
+                "left    back     right"
+                ".       floor    ."
+              `,
+          gridTemplateColumns: isMobile ? "1fr" : "180px 1fr 180px",
+          gridTemplateRows:    isMobile ? "1fr"  : "110px 1fr 110px",
         }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.15 }}
       >
-        {/* ── Ceiling ─────────────────────────────────────────────────────── */}
-        <WallSurface
-          wallId="ceiling"
-          label="▲ Ceiling"
-          isDragTarget={hoveredWall === "ceiling"}
-          style={{
-            gridArea: "ceiling",
-            transform: "perspective(600px) rotateX(-5deg)",
-            transformOrigin: "bottom center",
-          }}
-          {...wallHandlers("ceiling")}
-        >
-          {windowsOnWall("ceiling").map((w) => (
-            <AppWindow key={w.id} {...w} {...sharedWindowProps}>
-              <PlaceholderContent description={w.description} />
-            </AppWindow>
-          ))}
-        </WallSurface>
+        {/* ── Ceiling (desktop only) ──────────────────────────────────────── */}
+        {!isMobile && (
+          <WallSurface
+            wallId="ceiling"
+            label="▲ Ceiling"
+            isDragTarget={hoveredWall === "ceiling"}
+            style={{
+              gridArea: "ceiling",
+              transform: "perspective(600px) rotateX(-5deg)",
+              transformOrigin: "bottom center",
+            }}
+            {...wallHandlers("ceiling")}
+          >
+            {windowsOnWall("ceiling").map((w) => (
+              <AppWindow key={w.id} {...w} {...sharedWindowProps}>
+                <PlaceholderContent description={w.description} />
+              </AppWindow>
+            ))}
+          </WallSurface>
+        )}
 
-        {/* ── Left wall ───────────────────────────────────────────────────── */}
-        <WallSurface
-          wallId="left"
-          label="◀ Left"
-          isDragTarget={hoveredWall === "left"}
-          style={{
-            gridArea: "left",
-            transform: "perspective(600px) rotateY(6deg)",
-            transformOrigin: "right center",
-          }}
-          {...wallHandlers("left")}
-        >
-          {windowsOnWall("left").map((w) => (
-            <AppWindow key={w.id} {...w} {...sharedWindowProps}>
-              <PlaceholderContent description={w.description} />
-            </AppWindow>
-          ))}
-        </WallSurface>
+        {/* ── Left wall (desktop only) ─────────────────────────────────────── */}
+        {!isMobile && (
+          <WallSurface
+            wallId="left"
+            label="◀ Left"
+            isDragTarget={hoveredWall === "left"}
+            style={{
+              gridArea: "left",
+              transform: "perspective(600px) rotateY(6deg)",
+              transformOrigin: "right center",
+            }}
+            {...wallHandlers("left")}
+          >
+            {windowsOnWall("left").map((w) => (
+              <AppWindow key={w.id} {...w} {...sharedWindowProps}>
+                <PlaceholderContent description={w.description} />
+              </AppWindow>
+            ))}
+          </WallSurface>
+        )}
 
         {/* ── Back wall (primary) ─────────────────────────────────────────── */}
         <WallSurface
@@ -316,53 +328,57 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
           ))}
         </WallSurface>
 
-        {/* ── Right wall ──────────────────────────────────────────────────── */}
-        <WallSurface
-          wallId="right"
-          label="Right ▶"
-          isDragTarget={hoveredWall === "right"}
-          style={{
-            gridArea: "right",
-            transform: "perspective(600px) rotateY(-6deg)",
-            transformOrigin: "left center",
-          }}
-          {...wallHandlers("right")}
-        >
-          {windowsOnWall("right").map((w) => (
-            <AppWindow key={w.id} {...w} {...sharedWindowProps}>
-              <PlaceholderContent description={w.description} />
-            </AppWindow>
-          ))}
-        </WallSurface>
+        {/* ── Right wall (desktop only) ────────────────────────────────────── */}
+        {!isMobile && (
+          <WallSurface
+            wallId="right"
+            label="Right ▶"
+            isDragTarget={hoveredWall === "right"}
+            style={{
+              gridArea: "right",
+              transform: "perspective(600px) rotateY(-6deg)",
+              transformOrigin: "left center",
+            }}
+            {...wallHandlers("right")}
+          >
+            {windowsOnWall("right").map((w) => (
+              <AppWindow key={w.id} {...w} {...sharedWindowProps}>
+                <PlaceholderContent description={w.description} />
+              </AppWindow>
+            ))}
+          </WallSurface>
+        )}
 
-        {/* ── Floor ───────────────────────────────────────────────────────── */}
-        <WallSurface
-          wallId="floor"
-          label="▼ Floor"
-          isDragTarget={hoveredWall === "floor"}
-          style={{
-            gridArea: "floor",
-            transform: "perspective(600px) rotateX(5deg)",
-            transformOrigin: "top center",
-          }}
-          {...wallHandlers("floor")}
-        >
-          {windowsOnWall("floor").map((w) => (
-            <AppWindow key={w.id} {...w} {...sharedWindowProps}>
-              <PlaceholderContent description={w.description} />
-            </AppWindow>
-          ))}
-        </WallSurface>
+        {/* ── Floor (desktop only) ─────────────────────────────────────────── */}
+        {!isMobile && (
+          <WallSurface
+            wallId="floor"
+            label="▼ Floor"
+            isDragTarget={hoveredWall === "floor"}
+            style={{
+              gridArea: "floor",
+              transform: "perspective(600px) rotateX(5deg)",
+              transformOrigin: "top center",
+            }}
+            {...wallHandlers("floor")}
+          >
+            {windowsOnWall("floor").map((w) => (
+              <AppWindow key={w.id} {...w} {...sharedWindowProps}>
+                <PlaceholderContent description={w.description} />
+              </AppWindow>
+            ))}
+          </WallSurface>
+        )}
 
-        {/* ── Corner fills ────────────────────────────────────────────────── */}
-        {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map(
+        {/* ── Corner fills (desktop only) ──────────────────────────────────── */}
+        {!isMobile && (["top-left", "top-right", "bottom-left", "bottom-right"] as const).map(
           (pos) => (
             <div
               key={pos}
               style={{
                 background: BG_CORNER,
                 border: "1px solid rgba(255,255,255,0.04)",
-                gridArea: pos.replace("-", "") === "topleft"
+                gridArea: pos === "top-left"
                   ? "1 / 1 / 2 / 2"
                   : pos === "top-right"
                   ? "1 / 3 / 2 / 4"
