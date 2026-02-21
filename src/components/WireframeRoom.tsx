@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, Wand2, Activity, ArrowLeft } from "lucide-react";
 import AppWindow, { type WallId } from "./AppWindow";
+import Grid3D from "./Grid3D";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WireframeRoomProps {
@@ -20,11 +21,10 @@ interface WindowState {
 
 // ── Color tokens ───────────────────────────────────────────────────────────────
 
-const BG        = "#1C1C1E";
-const BG_CORNER = "#161618";
-const ACCENT    = "74,173,220";   // #4AADDC as rgb components
+const BG     = "#1C1C1E";
+const ACCENT = "74,173,220";   // #4AADDC as rgb components
 
-// Subtle white grid (matches reference image)
+// Grid pattern for wall surfaces
 function wireframeGrid(intensity: "dim" | "normal" | "bright" | "accent" = "normal", size = 40) {
   const c =
     intensity === "accent" ? `rgba(${ACCENT},0.30)` :
@@ -65,16 +65,22 @@ function WallSurface({
   const borderColor = isDragTarget
     ? `rgba(${ACCENT},0.65)`
     : isPrimary
-    ? "rgba(255,255,255,0.10)"
-    : "rgba(255,255,255,0.06)";
+    ? "rgba(255,255,255,0.12)"
+    : "rgba(255,255,255,0.07)";
+
+  // Semi-transparent so Room3D background shows through
+  const bgColor = isPrimary
+    ? "rgba(28,28,30,0.50)"
+    : "rgba(28,28,30,0.65)";
 
   return (
     <div
       data-wall={wallId}
       className={`relative overflow-hidden ${className}`}
       style={{
-        background: BG,
+        background: bgColor,
         border: `1px solid ${borderColor}`,
+        backdropFilter: "blur(4px)",
         transition: "border-color 0.2s, box-shadow 0.2s",
         boxShadow: isDragTarget
           ? `inset 0 0 40px rgba(${ACCENT},0.08), 0 0 20px rgba(${ACCENT},0.12)`
@@ -213,18 +219,20 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
 
   return (
     <div
-      className="w-screen h-screen overflow-hidden flex flex-col"
+      className="w-screen h-screen overflow-hidden flex flex-col relative"
       style={{ background: BG }}
     >
-      {/* ── Minimal header ──────────────────────────────────────────────────── */}
+      {/* ── Shared perspective room background ──────────────────────────────── */}
+      <Grid3D position="absolute" opacity={0.75} backWallReveal={1} />
+
+      {/* ── Minimal header (back button only) ───────────────────────────────── */}
       <motion.header
-        className="flex items-center justify-between px-4 md:px-5 py-3 shrink-0"
+        className="flex items-center px-4 md:px-5 py-3 shrink-0 relative z-10"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Back to landing */}
         <button
           onClick={onBack ?? (() => { window.location.href = "/"; })}
           className="flex items-center gap-2 group"
@@ -235,25 +243,11 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             Back
           </span>
         </button>
-
-        {/* Logo + title */}
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/favicon.svg?v=2" alt="Nexus" className="w-5 h-5 md:w-6 md:h-6" />
-          <span
-            className="text-sm font-mono tracking-[0.25em] uppercase"
-            style={{ color: `rgba(${ACCENT},0.85)` }}
-          >
-            Nexus
-          </span>
-        </div>
-
-        {/* Spacer */}
-        <div className="w-10 md:w-16" />
       </motion.header>
 
       {/* ── Room grid ───────────────────────────────────────────────────────── */}
       <motion.div
-        className="flex-1"
+        className="flex-1 relative z-10"
         style={{
           display: "grid",
           gridTemplateAreas: isMobile
@@ -278,7 +272,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             isDragTarget={hoveredWall === "ceiling"}
             style={{
               gridArea: "ceiling",
-              transform: "perspective(600px) rotateX(-5deg)",
+              transform: "perspective(800px) rotateX(-8deg)",
               transformOrigin: "bottom center",
             }}
             {...wallHandlers("ceiling")}
@@ -299,7 +293,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             isDragTarget={hoveredWall === "left"}
             style={{
               gridArea: "left",
-              transform: "perspective(600px) rotateY(6deg)",
+              transform: "perspective(800px) rotateY(10deg)",
               transformOrigin: "right center",
             }}
             {...wallHandlers("left")}
@@ -336,7 +330,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             isDragTarget={hoveredWall === "right"}
             style={{
               gridArea: "right",
-              transform: "perspective(600px) rotateY(-6deg)",
+              transform: "perspective(800px) rotateY(-10deg)",
               transformOrigin: "left center",
             }}
             {...wallHandlers("right")}
@@ -357,7 +351,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             isDragTarget={hoveredWall === "floor"}
             style={{
               gridArea: "floor",
-              transform: "perspective(600px) rotateX(5deg)",
+              transform: "perspective(800px) rotateX(8deg)",
               transformOrigin: "top center",
             }}
             {...wallHandlers("floor")}
@@ -376,8 +370,9 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
             <div
               key={pos}
               style={{
-                background: BG_CORNER,
+                background: "rgba(22,22,24,0.70)",
                 border: "1px solid rgba(255,255,255,0.04)",
+                backdropFilter: "blur(4px)",
                 gridArea: pos === "top-left"
                   ? "1 / 1 / 2 / 2"
                   : pos === "top-right"
