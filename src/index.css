@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Silicon Prairie Design System - Agri-Tech Fusion */
+
+@layer base {
+  :root {
+    /* Core Palette - Dark mode first for cyberpunk aesthetic */
+    --background: 220 20% 8%;
+    --foreground: 45 30% 95%;
+
+    /* Cards with subtle transparency */
+    --card: 220 18% 12%;
+    --card-foreground: 45 30% 95%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 45 30% 95%;
+
+    /* Primary - Neon Cyan (Tech nodes) */
+    --primary: 185 100% 50%;
+    --primary-foreground: 220 20% 8%;
+
+    /* Secondary - Golden Wheat */
+    --secondary: 38 85% 55%;
+    --secondary-foreground: 220 20% 8%;
+
+    /* Muted tones */
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 55%;
+
+    /* Accent - Electric Purple */
+    --accent: 265 90% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Functional colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 22%;
+    --input: 220 15% 18%;
+    --ring: 185 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom Silicon Prairie tokens */
+    --wheat-gold: 38 85% 55%;
+    --wheat-amber: 30 80% 45%;
+    --neon-cyan: 185 100% 50%;
+    --neon-blue: 210 100% 60%;
+    --neon-purple: 265 90% 65%;
+    --prairie-dark: 220 20% 8%;
+    --prairie-deep: 220 25% 5%;
+
+    /* Gradients */
+    --gradient-neon: linear-gradient(135deg, hsl(185 100% 50%), hsl(210 100% 60%));
+    --gradient-wheat: linear-gradient(135deg, hsl(38 85% 55%), hsl(30 80% 45%));
+    --gradient-glow: radial-gradient(circle, hsl(185 100% 50% / 0.3), transparent 70%);
+    --gradient-hero: linear-gradient(180deg, hsl(220 20% 8% / 0.3) 0%, hsl(220 25% 5% / 0.95) 100%);
+
+    /* Shadows & Glows */
+    --glow-cyan: 0 0 40px hsl(185 100% 50% / 0.4);
+    --glow-gold: 0 0 30px hsl(38 85% 55% / 0.3);
+    --glow-purple: 0 0 35px hsl(265 90% 65% / 0.4);
+    --shadow-deep: 0 25px 50px -12px hsl(220 25% 5% / 0.8);
+
+    /* Sidebar tokens */
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 45 30% 95%;
+    --sidebar-primary: 185 100% 50%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 45 30% 95%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-ring: 185 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Neon glow effect for tech nodes */
+  .node-glow {
+    box-shadow: var(--glow-cyan);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .node-glow:hover {
+    box-shadow: 0 0 60px hsl(185 100% 50% / 0.6), 0 0 100px hsl(185 100% 50% / 0.3);
+    transform: scale(1.1);
+  }
+
+  /* Node type variants */
+  .node-funder {
+    --node-color: 38 85% 55%;
+    box-shadow: 0 0 40px hsl(var(--node-color) / 0.4);
+  }
+
+  .node-developer {
+    --node-color: 185 100% 50%;
+    box-shadow: 0 0 40px hsl(var(--node-color) / 0.4);
+  }
+
+  .node-business {
+    --node-color: 265 90% 65%;
+    box-shadow: 0 0 40px hsl(var(--node-color) / 0.4);
+  }
+
+  /* Glass morphism cards */
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+    box-shadow: var(--shadow-deep);
+  }
+
+  /* Neon text effect */
+  .text-neon {
+    text-shadow: 0 0 10px hsl(185 100% 50% / 0.5), 0 0 30px hsl(185 100% 50% / 0.3);
+  }
+
+  .text-neon-gold {
+    text-shadow: 0 0 10px hsl(38 85% 55% / 0.5), 0 0 30px hsl(38 85% 55% / 0.3);
+  }
+
+  /* Animated underline */
+  .link-glow {
+    @apply relative;
+  }
+
+  .link-glow::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 origin-right transition-transform duration-300;
+  }
+
+  .link-glow:hover::after {
+    @apply scale-x-100 origin-left;
+  }
+
+  /* Pulse animation for nodes */
+  .pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.05);
+    }
+  }
+
+  /* Ripple effect */
+  .ripple {
+    animation: ripple 1.5s ease-out infinite;
+  }
+
+  @keyframes ripple {
+    0% {
+      transform: scale(0.8);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+
+  /* Wheat sway animation */
+  .wheat-sway {
+    animation: wheat-sway 4s ease-in-out infinite;
+  }
+
+  @keyframes wheat-sway {
+    0%, 100% {
+      transform: rotate(-1deg) translateX(0);
+    }
+    50% {
+      transform: rotate(1deg) translateX(5px);
+    }
+  }
+
+  /* Scan line effect */
+  .scan-lines::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(185 100% 50% / 0.03) 2px,
+      hsl(185 100% 50% / 0.03) 4px
+    );
+  }
+
+  /* Grid overlay for map */
+  .grid-overlay {
+    background-image: 
+      linear-gradient(hsl(185 100% 50% / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(185 100% 50% / 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+
+  .gradient-neon {
+    background: linear-gradient(135deg, hsl(185 100% 50%), hsl(210 100% 60%));
+  }
+
+  .gradient-wheat {
+    background: linear-gradient(135deg, hsl(38 85% 55%), hsl(30 80% 45%));
+  }
+
+  .gradient-hero-overlay {
+    background: linear-gradient(180deg, hsl(220 20% 8% / 0.3) 0%, hsl(220 25% 5% / 0.95) 100%);
+  }
+
+  .text-gradient-neon {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(185 100% 50%), hsl(210 100% 60%));
+  }
+
+  .text-gradient-wheat {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(38 85% 55%), hsl(45 90% 65%));
+  }
+}
