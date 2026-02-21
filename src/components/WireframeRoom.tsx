@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, Wand2, Activity, ArrowLeft } from "lucide-react";
 import AppWindow, { type WallId } from "./AppWindow";
 
+interface WireframeRoomProps {
+  onBack?: () => void;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface WindowState {
@@ -163,7 +167,7 @@ const INITIAL_WINDOWS: WindowState[] = [
   },
 ];
 
-export default function WireframeRoom() {
+export default function WireframeRoom({ onBack }: WireframeRoomProps) {
   const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
   const [dragging, setDragging] = useState(false);
   const [hoveredWall, setHoveredWall] = useState<WallId | null>(null);
@@ -209,16 +213,16 @@ export default function WireframeRoom() {
         transition={{ duration: 0.5 }}
       >
         {/* Back to landing */}
-        <a
-          href="/"
+        <button
+          onClick={onBack ?? (() => { window.location.href = "/"; })}
           className="flex items-center gap-2 group"
-          style={{ color: "rgba(96,165,250,0.5)" }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(96,165,250,0.5)" }}
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           <span className="text-xs font-mono tracking-wider uppercase hidden sm:inline">
             Back
           </span>
-        </a>
+        </button>
 
         {/* Logo + title */}
         <div className="flex items-center gap-3">
