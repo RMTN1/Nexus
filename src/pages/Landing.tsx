@@ -141,8 +141,8 @@ export default function Landing() {
         animate={{ opacity: stage >= 3 ? 1 : 0, y: stage >= 3 ? 0 : -10 }}
         transition={{ duration: 0.8 }}
       >
-        <img src="/favicon.svg" alt="Logo" className="w-7 h-7" />
-        <span className="font-light uppercase">Silicon Prairie</span>
+        <img src="/favicon.svg" alt="Nexus Node Logo" className="w-7 h-7" />
+        <span className="font-light uppercase tracking-[0.2em]">Nexus Node</span>
       </motion.div>
 
       {/* ── Flash overlay on exit ────────────────────────────────────────────── */}
