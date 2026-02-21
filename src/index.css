@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Silicon Prairie Design System - Agri-Tech Fusion */
+/* Nexus Design System */
 
 @layer base {
   :root {
@@ -45,7 +45,7 @@
 
     --radius: 0.75rem;
 
-    /* Custom Silicon Prairie tokens */
+    /* Custom Nexus tokens */
     --wheat-gold: 38 85% 55%;
     --wheat-amber: 30 80% 45%;
     --neon-cyan: 185 100% 50%;
