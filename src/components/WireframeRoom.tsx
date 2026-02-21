@@ -17,10 +17,19 @@ interface WindowState {
   wall: WallId;
 }
 
-// ── Wireframe grid helper ──────────────────────────────────────────────────────
+// ── Color tokens ───────────────────────────────────────────────────────────────
 
-function wireframeGrid(opacity = 0.22, size = 40) {
-  const c = `rgba(96,165,250,${opacity})`;
+const BG        = "#1C1C1E";
+const BG_CORNER = "#161618";
+const ACCENT    = "74,173,220";   // #4AADDC as rgb components
+
+// Subtle white grid (matches reference image)
+function wireframeGrid(intensity: "dim" | "normal" | "bright" | "accent" = "normal", size = 40) {
+  const c =
+    intensity === "accent" ? `rgba(${ACCENT},0.30)` :
+    intensity === "bright" ? "rgba(255,255,255,0.08)" :
+    intensity === "normal" ? "rgba(255,255,255,0.05)" :
+                             "rgba(255,255,255,0.03)";
   return {
     backgroundImage: `
       linear-gradient(${c} 1px, transparent 1px),
@@ -35,7 +44,6 @@ function wireframeGrid(opacity = 0.22, size = 40) {
 interface WallProps {
   wallId: WallId;
   label: string;
-  labelPos?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
   style?: React.CSSProperties;
   className?: string;
   isDragTarget: boolean;
@@ -52,44 +60,44 @@ function WallSurface({
   isPrimary = false,
   children,
 }: WallProps) {
-  const gridOpacity = isDragTarget ? 0.45 : isPrimary ? 0.28 : 0.18;
+  const gridIntensity = isDragTarget ? "accent" : isPrimary ? "bright" : "normal";
   const borderColor = isDragTarget
-    ? "rgba(96,165,250,0.7)"
+    ? `rgba(${ACCENT},0.65)`
     : isPrimary
-    ? "rgba(96,165,250,0.35)"
-    : "rgba(96,165,250,0.15)";
+    ? "rgba(255,255,255,0.10)"
+    : "rgba(255,255,255,0.06)";
 
   return (
     <div
       data-wall={wallId}
       className={`relative overflow-hidden ${className}`}
       style={{
-        background: "#050810",
+        background: BG,
         border: `1px solid ${borderColor}`,
         transition: "border-color 0.2s, box-shadow 0.2s",
         boxShadow: isDragTarget
-          ? `inset 0 0 40px rgba(96,165,250,0.12), 0 0 20px rgba(96,165,250,0.15)`
+          ? `inset 0 0 40px rgba(${ACCENT},0.08), 0 0 20px rgba(${ACCENT},0.12)`
           : isPrimary
-          ? "inset 0 0 60px rgba(96,165,250,0.04)"
+          ? "inset 0 0 60px rgba(255,255,255,0.015)"
           : "none",
-        ...wireframeGrid(gridOpacity),
+        ...wireframeGrid(gridIntensity),
         ...style,
       }}
     >
-      {/* Corner glow dots */}
+      {/* Corner glow dots — primary wall only */}
       {isPrimary && (
         <>
-          <span className="absolute top-0 left-0 w-2 h-2 rounded-full bg-[#60a5fa] opacity-40" />
-          <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-[#60a5fa] opacity-40" />
-          <span className="absolute bottom-0 left-0 w-2 h-2 rounded-full bg-[#60a5fa] opacity-40" />
-          <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[#60a5fa] opacity-40" />
+          <span className="absolute top-0 left-0 w-2 h-2 rounded-full opacity-50" style={{ background: `rgb(${ACCENT})` }} />
+          <span className="absolute top-0 right-0 w-2 h-2 rounded-full opacity-50" style={{ background: `rgb(${ACCENT})` }} />
+          <span className="absolute bottom-0 left-0 w-2 h-2 rounded-full opacity-50" style={{ background: `rgb(${ACCENT})` }} />
+          <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full opacity-50" style={{ background: `rgb(${ACCENT})` }} />
         </>
       )}
 
       {/* Wall label */}
       <span
         className="absolute top-2 left-3 text-[9px] font-mono tracking-[0.2em] uppercase pointer-events-none select-none"
-        style={{ color: "rgba(96,165,250,0.35)" }}
+        style={{ color: "rgba(255,255,255,0.18)" }}
       >
         {label}
       </span>
@@ -105,7 +113,7 @@ function WallSurface({
           >
             <span
               className="text-xs font-mono tracking-widest uppercase"
-              style={{ color: "rgba(96,165,250,0.5)" }}
+              style={{ color: `rgba(${ACCENT},0.55)` }}
             >
               drop here
             </span>
@@ -126,13 +134,13 @@ function WallSurface({
 function PlaceholderContent({ description }: { description: string }) {
   return (
     <div className="w-full h-full flex flex-col gap-3 p-1">
-      <p className="text-xs font-mono" style={{ color: "rgba(96,165,250,0.5)" }}>
+      <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.35)" }}>
         {description}
       </p>
       <div className="flex-1 flex items-center justify-center">
         <span
           className="text-[10px] font-mono tracking-widest uppercase border px-3 py-1 rounded"
-          style={{ color: "rgba(96,165,250,0.3)", borderColor: "rgba(96,165,250,0.2)" }}
+          style={{ color: `rgba(${ACCENT},0.45)`, borderColor: `rgba(${ACCENT},0.20)` }}
         >
           — coming soon —
         </span>
@@ -181,7 +189,6 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
   const windowsOnWall = (wallId: WallId) =>
     windows.filter((w) => w.wall === wallId);
 
-  // Wall pointer-enter/leave to highlight drop targets
   const wallHandlers = (wallId: WallId) =>
     dragging
       ? {
@@ -202,12 +209,12 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
   return (
     <div
       className="w-screen h-screen overflow-hidden flex flex-col"
-      style={{ background: "#050810" }}
+      style={{ background: BG }}
     >
       {/* ── Minimal header ──────────────────────────────────────────────────── */}
       <motion.header
         className="flex items-center justify-between px-5 py-3 shrink-0"
-        style={{ borderBottom: "1px solid rgba(96,165,250,0.12)" }}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -216,7 +223,7 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
         <button
           onClick={onBack ?? (() => { window.location.href = "/"; })}
           className="flex items-center gap-2 group"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(96,165,250,0.5)" }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)" }}
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           <span className="text-xs font-mono tracking-wider uppercase hidden sm:inline">
@@ -226,12 +233,12 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
 
         {/* Logo + title */}
         <div className="flex items-center gap-3">
-          <img src="/favicon.svg" alt="Nexus Node" className="w-6 h-6" />
+          <img src="/favicon.svg?v=2" alt="Nexus" className="w-6 h-6" />
           <span
             className="text-sm font-mono tracking-[0.25em] uppercase"
-            style={{ color: "rgba(96,165,250,0.8)" }}
+            style={{ color: `rgba(${ACCENT},0.85)` }}
           >
-            Nexus Node
+            Nexus
           </span>
         </div>
 
@@ -347,14 +354,14 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
           ))}
         </WallSurface>
 
-        {/* ── Corner fills (top-left, top-right, bottom-left, bottom-right) ── */}
+        {/* ── Corner fills ────────────────────────────────────────────────── */}
         {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map(
           (pos) => (
             <div
               key={pos}
               style={{
-                background: "#030608",
-                border: "1px solid rgba(96,165,250,0.08)",
+                background: BG_CORNER,
+                border: "1px solid rgba(255,255,255,0.04)",
                 gridArea: pos.replace("-", "") === "topleft"
                   ? "1 / 1 / 2 / 2"
                   : pos === "top-right"

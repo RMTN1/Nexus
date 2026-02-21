@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { GripHorizontal, Minus, Square, X } from "lucide-react";
+import { GripHorizontal } from "lucide-react";
 
 export type WallId = "back" | "left" | "right" | "ceiling" | "floor";
 
@@ -18,9 +18,10 @@ export interface AppWindowProps {
   onDragEnd: () => void;
 }
 
-const GRID_COLOR = "rgba(96,165,250,0.18)";
-const BORDER_COLOR = "rgba(96,165,250,0.35)";
-const HEADER_COLOR = "rgba(96,165,250,0.10)";
+const ACCENT      = "74,173,220";   // #4AADDC
+const GRID_COLOR  = "rgba(255,255,255,0.06)";
+const BORDER      = `rgba(${ACCENT},0.28)`;
+const HEADER_BG   = "rgba(255,255,255,0.04)";
 
 export default function AppWindow({
   id,
@@ -34,14 +35,12 @@ export default function AppWindow({
   const headerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  /** Begin a drag — attach global pointer listeners so we catch drop anywhere */
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
     setDragging(true);
     onDragStart();
 
-    // Release pointer from the header so other elements can receive pointerup
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
 
     const finish = () => {
@@ -52,10 +51,7 @@ export default function AppWindow({
     window.addEventListener("pointerup", finish);
   };
 
-  /** When the dragged header is released over a wall zone, the wall's
-   *  onPointerUp fires first (before window's). We call onMoveRequest there. */
   const handleHeaderPointerUp = (e: React.PointerEvent) => {
-    // Walk up the DOM to find the closest [data-wall] ancestor
     const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
     const wallEl = el?.closest("[data-wall]") as HTMLElement | null;
     if (wallEl) {
@@ -73,15 +69,16 @@ export default function AppWindow({
       transition={{ type: "spring", stiffness: 300, damping: 28 }}
       className="flex flex-col rounded-md overflow-hidden select-none"
       style={{
-        background: "rgba(5, 8, 16, 0.75)",
-        border: `1px solid ${BORDER_COLOR}`,
+        background: "rgba(28,28,30,0.85)",
+        border: `1px solid ${dragging ? `rgba(${ACCENT},0.55)` : BORDER}`,
         backdropFilter: "blur(12px)",
         boxShadow: dragging
-          ? "0 0 32px rgba(96,165,250,0.35), 0 0 64px rgba(96,165,250,0.12)"
-          : "0 0 16px rgba(96,165,250,0.12)",
+          ? `0 0 28px rgba(${ACCENT},0.25), 0 0 56px rgba(${ACCENT},0.10)`
+          : `0 0 12px rgba(0,0,0,0.40)`,
         minWidth: 240,
         minHeight: 160,
         zIndex: dragging ? 100 : 1,
+        transition: "border-color 0.15s, box-shadow 0.15s",
       }}
     >
       {/* ── Header / drag handle ────────────────────────────────────────────── */}
@@ -91,8 +88,8 @@ export default function AppWindow({
         onPointerUp={handleHeaderPointerUp}
         className="flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing"
         style={{
-          background: dragging ? "rgba(96,165,250,0.18)" : HEADER_COLOR,
-          borderBottom: `1px solid ${BORDER_COLOR}`,
+          background: dragging ? `rgba(${ACCENT},0.12)` : HEADER_BG,
+          borderBottom: `1px solid ${BORDER}`,
           transition: "background 0.15s",
         }}
       >
@@ -104,16 +101,16 @@ export default function AppWindow({
         </div>
 
         {/* Icon + title */}
-        {icon && <span className="text-[#60a5fa]/70">{icon}</span>}
+        {icon && <span style={{ color: `rgba(${ACCENT},0.75)` }}>{icon}</span>}
         <span
           className="flex-1 text-xs font-mono tracking-widest uppercase"
-          style={{ color: "rgba(96,165,250,0.85)" }}
+          style={{ color: `rgba(${ACCENT},0.90)` }}
         >
           {title}
         </span>
 
         {/* Drag hint */}
-        <GripHorizontal className="w-3.5 h-3.5 opacity-30" style={{ color: "#60a5fa" }} />
+        <GripHorizontal className="w-3.5 h-3.5 opacity-25" style={{ color: `rgb(${ACCENT})` }} />
       </div>
 
       {/* ── Content area ────────────────────────────────────────────────────── */}
@@ -125,7 +122,7 @@ export default function AppWindow({
             linear-gradient(90deg, ${GRID_COLOR} 1px, transparent 1px)
           `,
           backgroundSize: "24px 24px",
-          color: "rgba(96,165,250,0.6)",
+          color: "rgba(255,255,255,0.45)",
         }}
       >
         {children}

@@ -10,9 +10,9 @@ type Theme = { orb: string; grid: string };
 function getTimeTheme(): Theme {
   const h = new Date().getHours();
   if (h >= 5  && h < 10) return { orb: "#FB923C", grid: "#F59E0B" }; // dawn
-  if (h >= 10 && h < 17) return { orb: "#D4AF37", grid: "#60a5fa" }; // day
+  if (h >= 10 && h < 17) return { orb: "#4AADDC", grid: "#4AADDC" }; // day
   if (h >= 17 && h < 20) return { orb: "#C084FC", grid: "#F97316" }; // dusk
-  return { orb: "#22D3EE", grid: "#6366F1" };                         // night
+  return { orb: "#4AADDC", grid: "#4AADDC" };                         // night
 }
 
 // ── Transition state machine ──────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export default function Landing() {
   return (
     <div
       className="relative w-full min-h-screen overflow-hidden"
-      style={{ background: "#050810" }}
+      style={{ background: "#1C1C1E" }}
     >
 
       {/* ── Landing content (grid + orb + branding) ──────────────────────────── */}
@@ -97,18 +97,18 @@ export default function Landing() {
                 disabled={transitionState !== "landing"}
                 className="relative w-24 h-24 md:w-32 md:h-32 rounded-full cursor-pointer focus:outline-none"
                 style={{
-                  background: `radial-gradient(circle at 35% 35%, ${orbHovered ? theme.orb : theme.grid}, ${orbHovered ? "#7a3a10" : "#1a3070"})`,
+                  background: `radial-gradient(circle at 35% 35%, ${orbColor}, ${orbHovered ? "#1a5a80" : "#0e3a5c"})`,
                   boxShadow: `
                     0 0 40px ${orbColor}88,
                     0 0 80px ${orbColor}44,
-                    inset 0 0 30px rgba(255,255,255,0.15)
+                    inset 0 0 30px rgba(255,255,255,0.12)
                   `,
                   transition: "background 0.4s ease, box-shadow 0.4s ease",
                 }}
               >
                 <div
                   className="absolute inset-3 rounded-full"
-                  style={{ background: "radial-gradient(circle at 38% 35%, rgba(255,255,255,0.45), transparent 55%)" }}
+                  style={{ background: "radial-gradient(circle at 38% 35%, rgba(255,255,255,0.35), transparent 55%)" }}
                 />
                 <Sparkles className="absolute inset-0 m-auto w-8 h-8 md:w-10 md:h-10 text-white/70" />
 
@@ -142,7 +142,7 @@ export default function Landing() {
                         style={{
                           width: "2px",
                           height: "180px",
-                          background: `linear-gradient(to top, transparent, ${theme.orb}55, transparent)`,
+                          background: `linear-gradient(to top, transparent, ${orbColor}55, transparent)`,
                           transform: `rotate(${i * (360 / 14)}deg)`,
                         }}
                         initial={{ scaleY: 0, opacity: 0 }}
@@ -159,13 +159,13 @@ export default function Landing() {
             {/* ── Top-center branding ──────────────────────────────────────── */}
             <motion.div
               className="absolute top-6 inset-x-0 flex justify-center items-center gap-3 text-lg tracking-wider pointer-events-none"
-              style={{ color: "rgba(96,165,250,0.8)" }}
+              style={{ color: "rgba(74,173,220,0.9)" }}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: stage >= 3 ? 1 : 0, y: stage >= 3 ? 0 : -10 }}
               transition={{ duration: 0.8 }}
             >
-              <img src="/favicon.svg" alt="Nexus Node Logo" className="w-7 h-7" />
-              <span className="font-light uppercase tracking-[0.2em]">Nexus Node</span>
+              <img src="/favicon.svg?v=2" alt="Nexus Logo" className="w-7 h-7" />
+              <span className="font-light uppercase tracking-[0.2em]">Nexus</span>
             </motion.div>
           </motion.div>
         )}
@@ -184,7 +184,7 @@ export default function Landing() {
               left: "50%",
               marginTop: -64,
               marginLeft: -64,
-              background: transitionState === "orb-expanding" ? orbColor : "#050810",
+              background: transitionState === "orb-expanding" ? orbColor : "#1C1C1E",
               zIndex: 100,
             }}
             initial={{ scale: transitionState === "orb-expanding" ? 1 : 40 }}
