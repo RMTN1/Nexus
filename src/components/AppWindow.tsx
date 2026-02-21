@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { GripHorizontal } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export type WallId = "back" | "left" | "right" | "ceiling" | "floor";
 
@@ -32,11 +33,12 @@ export default function AppWindow({
   onDragStart,
   onDragEnd,
 }: AppWindowProps) {
+  const isMobile = useIsMobile();
   const headerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
+    if (isMobile || e.button !== 0) return;
     e.preventDefault();
     setDragging(true);
     onDragStart();
@@ -52,6 +54,7 @@ export default function AppWindow({
   };
 
   const handleHeaderPointerUp = (e: React.PointerEvent) => {
+    if (isMobile) return;
     const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
     const wallEl = el?.closest("[data-wall]") as HTMLElement | null;
     if (wallEl) {
@@ -75,8 +78,11 @@ export default function AppWindow({
         boxShadow: dragging
           ? `0 0 28px rgba(${ACCENT},0.25), 0 0 56px rgba(${ACCENT},0.10)`
           : `0 0 12px rgba(0,0,0,0.40)`,
-        minWidth: 240,
-        minHeight: 160,
+        // On mobile: no fixed minimum — fill available width naturally
+        minWidth: isMobile ? 0 : 240,
+        minHeight: isMobile ? 90 : 160,
+        // On mobile: full width in the back-wall flex-wrap layout
+        width: isMobile ? "100%" : undefined,
         zIndex: dragging ? 100 : 1,
         transition: "border-color 0.15s, box-shadow 0.15s",
       }}
@@ -86,7 +92,7 @@ export default function AppWindow({
         ref={headerRef}
         onPointerDown={handlePointerDown}
         onPointerUp={handleHeaderPointerUp}
-        className="flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing"
+        className={`flex items-center gap-2 px-3 py-2 ${isMobile ? "cursor-default" : "cursor-grab active:cursor-grabbing"}`}
         style={{
           background: dragging ? `rgba(${ACCENT},0.12)` : HEADER_BG,
           borderBottom: `1px solid ${BORDER}`,
@@ -109,8 +115,10 @@ export default function AppWindow({
           {title}
         </span>
 
-        {/* Drag hint */}
-        <GripHorizontal className="w-3.5 h-3.5 opacity-25" style={{ color: `rgb(${ACCENT})` }} />
+        {/* Drag hint — desktop only */}
+        {!isMobile && (
+          <GripHorizontal className="w-3.5 h-3.5 opacity-25" style={{ color: `rgb(${ACCENT})` }} />
+        )}
       </div>
 
       {/* ── Content area ────────────────────────────────────────────────────── */}
