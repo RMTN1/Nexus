@@ -11,18 +11,31 @@ import {
   type GridLine,
 } from "@/lib/room-geometry";
 
-// ── Color tokens ──────────────────────────────────────────────────────────────
-const LINE     = "rgba(96,165,250,0.15)";
-const LINE_BW  = "rgba(96,165,250,0.30)";
-const EDGE     = "rgba(96,165,250,0.50)";
-const GLOW_BW  = "rgba(96,165,250,1.00)";
-const GLOW_W   = "rgba(96,165,250,0.70)";
+// ── Color tokens — per variant ─────────────────────────────────────────────────
+//   dim    = landing page idle (muted, atmospheric)
+//   normal = default mid
+//   bright = dashboard "activated" room (vivid, always-on)
+
+const VARIANTS = {
+  dim:    { line: 0.06, lineBw: 0.13, edge: 0.22, glow: 0.06 },
+  normal: { line: 0.15, lineBw: 0.30, edge: 0.50, glow: 0.08 },
+  bright: { line: 0.32, lineBw: 0.62, edge: 0.85, glow: 0.14 },
+} as const;
+
+type Variant = keyof typeof VARIANTS;
+
+function rgba(a: number) { return `rgba(96,165,250,${a})`; }
+
+const GLOW_BW = "rgba(96,165,250,1.00)";
+const GLOW_W  = "rgba(96,165,250,0.70)";
 
 // ── Grid3D props ──────────────────────────────────────────────────────────────
 
 interface Grid3DProps {
   opacity?: number;
   position?: "fixed" | "absolute";
+  /** Controls baseline line brightness */
+  variant?: Variant;
   /** When true, triggers the grid activation glow-wave from the VP */
   activated?: boolean;
 }
@@ -43,9 +56,10 @@ interface BWLineProps {
   delay: number;
   activated: boolean;
   activationKey: number;
+  baseColor: string;
 }
 
-function BWLine({ line, delay, activated, activationKey }: BWLineProps) {
+function BWLine({ line, delay, activated, activationKey, baseColor }: BWLineProps) {
   return (
     <motion.path
       key={activationKey}
@@ -54,18 +68,11 @@ function BWLine({ line, delay, activated, activationKey }: BWLineProps) {
       strokeWidth={0.20}
       animate={
         activated
-          ? {
-              stroke: [LINE_BW, GLOW_BW, LINE_BW],
-              strokeWidth: [0.20, 0.55, 0.20],
-            }
-          : { stroke: LINE_BW, strokeWidth: 0.20 }
+          ? { stroke: [baseColor, GLOW_BW, baseColor], strokeWidth: [0.20, 0.55, 0.20] }
+          : { stroke: baseColor, strokeWidth: 0.20 }
       }
-      transition={
-        activated
-          ? { duration: 1.0, delay, ease: "easeOut" }
-          : { duration: 0 }
-      }
-      style={{ stroke: LINE_BW }}
+      transition={activated ? { duration: 1.0, delay, ease: "easeOut" } : { duration: 0 }}
+      style={{ stroke: baseColor }}
     />
   );
 }
@@ -75,9 +82,10 @@ interface PerspLineProps {
   delay: number;
   activated: boolean;
   activationKey: number;
+  baseColor: string;
 }
 
-function PerspLine({ line, delay, activated, activationKey }: PerspLineProps) {
+function PerspLine({ line, delay, activated, activationKey, baseColor }: PerspLineProps) {
   return (
     <motion.path
       key={activationKey}
@@ -86,18 +94,11 @@ function PerspLine({ line, delay, activated, activationKey }: PerspLineProps) {
       strokeWidth={0.18}
       animate={
         activated
-          ? {
-              stroke: [LINE, GLOW_W, LINE],
-              strokeWidth: [0.18, 0.45, 0.18],
-            }
-          : { stroke: LINE, strokeWidth: 0.18 }
+          ? { stroke: [baseColor, GLOW_W, baseColor], strokeWidth: [0.18, 0.45, 0.18] }
+          : { stroke: baseColor, strokeWidth: 0.18 }
       }
-      transition={
-        activated
-          ? { duration: 0.8, delay, ease: "easeOut" }
-          : { duration: 0 }
-      }
-      style={{ stroke: LINE }}
+      transition={activated ? { duration: 0.8, delay, ease: "easeOut" } : { duration: 0 }}
+      style={{ stroke: baseColor }}
     />
   );
 }
@@ -107,8 +108,13 @@ function PerspLine({ line, delay, activated, activationKey }: PerspLineProps) {
 export default function Grid3D({
   opacity = 1,
   position = "fixed",
+  variant = "normal",
   activated = false,
 }: Grid3DProps) {
+  const v = VARIANTS[variant];
+  const LINE    = rgba(v.line);
+  const LINE_BW = rgba(v.lineBw);
+  const EDGE    = rgba(v.edge);
   const { vw, vh } = useWindowSize();
   const { BW, VP, cols, rows } = useMemo(
     () => computeGeometry(vw, vh),
@@ -162,46 +168,26 @@ export default function Grid3D({
       >
         {/* ── Floor ─────────────────────────────────────────────────────────── */}
         {floorLines.map((l, i) => (
-          <PerspLine
-            key={`fl-${i}`}
-            line={l}
-            delay={perspDelayOf(l)}
-            activated={isAnimating}
-            activationKey={activationKey}
-          />
+          <PerspLine key={`fl-${i}`} line={l} delay={perspDelayOf(l)}
+            activated={isAnimating} activationKey={activationKey} baseColor={LINE} />
         ))}
 
         {/* ── Ceiling ───────────────────────────────────────────────────────── */}
         {ceilLines.map((l, i) => (
-          <PerspLine
-            key={`cl-${i}`}
-            line={l}
-            delay={perspDelayOf(l)}
-            activated={isAnimating}
-            activationKey={activationKey}
-          />
+          <PerspLine key={`cl-${i}`} line={l} delay={perspDelayOf(l)}
+            activated={isAnimating} activationKey={activationKey} baseColor={LINE} />
         ))}
 
         {/* ── Left wall ─────────────────────────────────────────────────────── */}
         {leftLines.map((l, i) => (
-          <PerspLine
-            key={`lw-${i}`}
-            line={l}
-            delay={perspDelayOf(l)}
-            activated={isAnimating}
-            activationKey={activationKey}
-          />
+          <PerspLine key={`lw-${i}`} line={l} delay={perspDelayOf(l)}
+            activated={isAnimating} activationKey={activationKey} baseColor={LINE} />
         ))}
 
         {/* ── Right wall ────────────────────────────────────────────────────── */}
         {rightLines.map((l, i) => (
-          <PerspLine
-            key={`rw-${i}`}
-            line={l}
-            delay={perspDelayOf(l)}
-            activated={isAnimating}
-            activationKey={activationKey}
-          />
+          <PerspLine key={`rw-${i}`} line={l} delay={perspDelayOf(l)}
+            activated={isAnimating} activationKey={activationKey} baseColor={LINE} />
         ))}
 
         {/* ── Room corner edges (brighter) ──────────────────────────────────── */}
@@ -219,13 +205,8 @@ export default function Grid3D({
 
         {/* ── Back wall grid ────────────────────────────────────────────────── */}
         {bwLines.map((l, i) => (
-          <BWLine
-            key={`bw-${i}`}
-            line={l}
-            delay={(bwDistances[i] / bwMaxDist) * 0.5}
-            activated={isAnimating}
-            activationKey={activationKey}
-          />
+          <BWLine key={`bw-${i}`} line={l} delay={(bwDistances[i] / bwMaxDist) * 0.5}
+            activated={isAnimating} activationKey={activationKey} baseColor={LINE_BW} />
         ))}
 
         {/* ── Back wall ambient fill ────────────────────────────────────────── */}
@@ -276,7 +257,7 @@ export default function Grid3D({
           top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           width: "30%", height: "30%",
-          background: "radial-gradient(ellipse, rgba(96,165,250,0.08) 0%, transparent 70%)",
+          background: `radial-gradient(ellipse, rgba(96,165,250,${v.glow}) 0%, transparent 70%)`,
           filter: "blur(20px)",
           pointerEvents: "none",
         }}

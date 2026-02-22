@@ -173,6 +173,58 @@ export function buildLeftLines(BW: RoomGeometry["BW"], cols: number, rows: numbe
   return lines;
 }
 
+// ── Wall-at-point classifier ──────────────────────────────────────────────────
+
+/** Standard even-odd point-in-polygon (coordinates in same space as poly) */
+function pointInPolygon(px: number, py: number, poly: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+export type WallId = "back" | "left" | "right" | "ceiling" | "floor";
+
+/**
+ * Given a point (px, py) in viewBox 0-100 space, return which wall it belongs to.
+ * The 5 trapezoid regions tile the screen perfectly.
+ */
+export function wallAtPoint(px: number, py: number, BW: RoomGeometry["BW"]): WallId {
+  if (px >= BW.x1 && px <= BW.x2 && py >= BW.y1 && py <= BW.y2) return "back";
+  if (pointInPolygon(px, py, [[0,0],[100,0],[BW.x2,BW.y1],[BW.x1,BW.y1]])) return "ceiling";
+  if (pointInPolygon(px, py, [[BW.x1,BW.y2],[BW.x2,BW.y2],[100,100],[0,100]])) return "floor";
+  if (pointInPolygon(px, py, [[0,0],[BW.x1,BW.y1],[BW.x1,BW.y2],[0,100]])) return "left";
+  return "right";
+}
+
+/** Default screen-pixel position for a window attached to a given wall. */
+export function defaultWindowPos(
+  wall: WallId,
+  BW: RoomGeometry["BW"],
+  vw: number,
+  vh: number,
+  stackIndex = 0,
+): { x: number; y: number } {
+  const m = 24;
+  const stagger = stackIndex * 28;
+  const bwPxX1 = (BW.x1 / 100) * vw;
+  const bwPxY1 = (BW.y1 / 100) * vh;
+  const bwPxX2 = (BW.x2 / 100) * vw;
+  const bwPxY2 = (BW.y2 / 100) * vh;
+  switch (wall) {
+    case "back":    return { x: bwPxX1 + m + stagger, y: bwPxY1 + m + stagger };
+    case "ceiling": return { x: bwPxX1 + m + stagger, y: m + stagger };
+    case "floor":   return { x: bwPxX1 + m + stagger, y: bwPxY2 + m + stagger };
+    case "left":    return { x: m + stagger,           y: bwPxY1 + stagger };
+    case "right":   return { x: bwPxX2 + m + stagger, y: bwPxY1 + stagger };
+  }
+}
+
 // ── Right wall ────────────────────────────────────────────────────────────────
 
 export function buildRightLines(BW: RoomGeometry["BW"], cols: number, rows: number): GridLine[] {
