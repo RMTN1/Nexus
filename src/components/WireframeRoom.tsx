@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, Wand2, Activity, ArrowLeft } from "lucide-react";
 import AppWindow, { type WallId } from "./AppWindow";
-import Grid3D, { BW } from "./Grid3D";
+import Grid3D from "./Grid3D";
+import { computeGeometry } from "@/lib/room-geometry";
+import { useWindowSize } from "@/hooks/use-window-size";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WireframeRoomProps {
@@ -21,35 +23,25 @@ interface WindowState {
 const BG     = "#1C1C1E";
 const ACCENT = "74,173,220";
 
-// ── Geometry helpers ───────────────────────────────────────────────────────────
-// BW is in 0-100 viewBox units; convert to % for CSS clip-path
-// BW = { x1:28, y1:22, x2:72, y2:78 }
-// Screen corners are 0% / 100%
-//
-// Each wall is a trapezoid defined by 4 corners in clockwise order.
-// clip-path: polygon() uses percentage values relative to the element's bounding box.
-// Since the element is position:absolute and sized to fill the viewport,
-// the percentages map directly to screen percentages.
-
-const CP = {
-  // Back wall: simple rectangle in the centre
-  back:    `polygon(${BW.x1}% ${BW.y1}%, ${BW.x2}% ${BW.y1}%, ${BW.x2}% ${BW.y2}%, ${BW.x1}% ${BW.y2}%)`,
-  // Ceiling: top-left → top-right → BW top-right → BW top-left
-  ceiling: `polygon(0% 0%, 100% 0%, ${BW.x2}% ${BW.y1}%, ${BW.x1}% ${BW.y1}%)`,
-  // Floor: BW bottom-left → BW bottom-right → screen bottom-right → screen bottom-left
-  floor:   `polygon(${BW.x1}% ${BW.y2}%, ${BW.x2}% ${BW.y2}%, 100% 100%, 0% 100%)`,
-  // Left wall: screen top-left → BW top-left → BW bottom-left → screen bottom-left
-  left:    `polygon(0% 0%, ${BW.x1}% ${BW.y1}%, ${BW.x1}% ${BW.y2}%, 0% 100%)`,
-  // Right wall: BW top-right → screen top-right → screen bottom-right → BW bottom-right
-  right:   `polygon(${BW.x2}% ${BW.y1}%, 100% 0%, 100% 100%, ${BW.x2}% ${BW.y2}%)`,
-} as const;
+// ── Build clip-path strings from dynamic BW ────────────────────────────────────
+function buildClipPaths(BW: { x1: number; y1: number; x2: number; y2: number }) {
+  return {
+    back:    `polygon(${BW.x1}% ${BW.y1}%, ${BW.x2}% ${BW.y1}%, ${BW.x2}% ${BW.y2}%, ${BW.x1}% ${BW.y2}%)`,
+    ceiling: `polygon(0% 0%, 100% 0%, ${BW.x2}% ${BW.y1}%, ${BW.x1}% ${BW.y1}%)`,
+    floor:   `polygon(${BW.x1}% ${BW.y2}%, ${BW.x2}% ${BW.y2}%, 100% 100%, 0% 100%)`,
+    left:    `polygon(0% 0%, ${BW.x1}% ${BW.y1}%, ${BW.x1}% ${BW.y2}%, 0% 100%)`,
+    right:   `polygon(${BW.x2}% ${BW.y1}%, 100% 0%, 100% 100%, ${BW.x2}% ${BW.y2}%)`,
+  } as Record<WallId, string>;
+}
 
 // ── Wall overlay ───────────────────────────────────────────────────────────────
 interface WallOverlayProps {
   wallId: WallId;
   label: string;
+  clipPath: string;
   isDragTarget: boolean;
   isPrimary?: boolean;
+  BW: { x1: number; y1: number; x2: number; y2: number };
   children?: React.ReactNode;
   dragHandlers: Record<string, unknown>;
 }
@@ -57,17 +49,13 @@ interface WallOverlayProps {
 function WallOverlay({
   wallId,
   label,
+  clipPath,
   isDragTarget,
   isPrimary = false,
+  BW,
   children,
   dragHandlers,
 }: WallOverlayProps) {
-  const borderColor = isDragTarget
-    ? `rgba(${ACCENT},0.70)`
-    : isPrimary
-    ? "rgba(96,165,250,0.30)"
-    : "rgba(96,165,250,0.12)";
-
   const bgColor = isDragTarget
     ? `rgba(${ACCENT},0.08)`
     : isPrimary
@@ -79,7 +67,7 @@ function WallOverlay({
       data-wall={wallId}
       className="absolute inset-0 pointer-events-auto"
       style={{
-        clipPath: CP[wallId],
+        clipPath,
         background: bgColor,
         outline: isDragTarget ? `2px solid rgba(${ACCENT},0.55)` : undefined,
         transition: "background 0.2s",
@@ -95,12 +83,8 @@ function WallOverlay({
             exit={{ opacity: 0 }}
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{
-              // Nudge hint text toward the visual center of the trapezoid
-              paddingTop:
-                wallId === "floor" ? "8%" :
-                wallId === "ceiling" ? "0%" : undefined,
-              paddingBottom:
-                wallId === "ceiling" ? "8%" : undefined,
+              paddingTop:    wallId === "floor"   ? "8%"  : undefined,
+              paddingBottom: wallId === "ceiling" ? "8%"  : undefined,
             }}
           >
             <span
@@ -117,27 +101,27 @@ function WallOverlay({
         )}
       </AnimatePresence>
 
-      {/* Window container — clipped to wall shape */}
-      <div className="absolute inset-0 flex flex-wrap gap-3 p-4 content-start items-start overflow-hidden pointer-events-none">
-        <div className="pointer-events-auto w-full h-full flex flex-wrap gap-3 content-start items-start">
+      {/* Window container */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="pointer-events-auto w-full h-full flex flex-wrap gap-3 p-4 content-start items-start">
           {children}
         </div>
       </div>
 
-      {/* Wall label (subtle, always visible) */}
+      {/* Wall label */}
       <span
         className="absolute text-[8px] font-mono tracking-[0.25em] uppercase pointer-events-none select-none"
         style={{
           color: `rgba(${ACCENT},0.22)`,
-          top: wallId === "floor" ? "30%" : wallId === "ceiling" ? "12%" : "8px",
-          left: wallId === "right" ? undefined : "12px",
-          right: wallId === "right" ? "12px" : undefined,
+          top:   wallId === "floor" ? "30%" : wallId === "ceiling" ? "12%" : "8px",
+          left:  wallId === "right" ? undefined : "12px",
+          right: wallId === "right" ? "12px"    : undefined,
         }}
       >
         {wallId}
       </span>
 
-      {/* Corner accent dots on back wall */}
+      {/* Corner accent dots — back wall only */}
       {isPrimary && !isDragTarget && (
         <>
           <span className="absolute rounded-full w-1.5 h-1.5 opacity-60"
@@ -149,17 +133,6 @@ function WallOverlay({
           <span className="absolute rounded-full w-1.5 h-1.5 opacity-60"
             style={{ background: `rgb(${ACCENT})`, top: `${BW.y2}%`, left: `${BW.x2}%` }} />
         </>
-      )}
-
-      {/* Drag-target border glow outline overlay */}
-      {isDragTarget && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            clipPath: CP[wallId],
-            boxShadow: `inset 0 0 60px rgba(${ACCENT},0.10)`,
-          }}
-        />
       )}
     </div>
   );
@@ -209,8 +182,8 @@ const INITIAL_WINDOWS: WindowState[] = [
   },
 ];
 
-const WALLS: { id: WallId; label: string; primary?: boolean }[] = [
-  { id: "back",    label: "drop on back wall",    primary: true },
+const WALL_DEFS: { id: WallId; label: string; primary?: boolean }[] = [
+  { id: "back",    label: "drop on back wall", primary: true },
   { id: "ceiling", label: "drop on ceiling" },
   { id: "floor",   label: "drop on floor" },
   { id: "left",    label: "drop on left wall" },
@@ -219,8 +192,14 @@ const WALLS: { id: WallId; label: string; primary?: boolean }[] = [
 
 export default function WireframeRoom({ onBack }: WireframeRoomProps) {
   const isMobile = useIsMobile();
-  const [windows, setWindows] = useState<WindowState[]>(INITIAL_WINDOWS);
-  const [dragging, setDragging] = useState(false);
+  const { vw, vh } = useWindowSize();
+
+  // ── Dynamic geometry (square tiles, matching Grid3D) ──────────────────────
+  const { BW } = useMemo(() => computeGeometry(vw, vh), [vw, vh]);
+  const CP = useMemo(() => buildClipPaths(BW), [BW]);
+
+  const [windows,     setWindows]     = useState<WindowState[]>(INITIAL_WINDOWS);
+  const [dragging,    setDragging]    = useState(false);
   const [hoveredWall, setHoveredWall] = useState<WallId | null>(null);
 
   const moveWindow = (id: string, targetWall: WallId) => {
@@ -229,9 +208,8 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
     );
   };
 
-  const effectiveWall = (w: WindowState): WallId => (isMobile ? "back" : w.wall);
-  const windowsOnWall = (wallId: WallId) =>
-    windows.filter((w) => effectiveWall(w) === wallId);
+  const effectiveWall  = (w: WindowState): WallId => (isMobile ? "back" : w.wall);
+  const windowsOnWall  = (wallId: WallId) => windows.filter((w) => effectiveWall(w) === wallId);
 
   const wallDragHandlers = (wallId: WallId) =>
     dragging && !isMobile
@@ -243,12 +221,8 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
 
   const sharedWindowProps = {
     onMoveRequest: moveWindow,
-    onDragStart: () => !isMobile && setDragging(true),
-    onDragEnd: (targetWall?: WallId) => {
-      if (targetWall) moveWindow("_pending", targetWall); // no-op placeholder
-      setDragging(false);
-      setHoveredWall(null);
-    },
+    onDragStart:   () => !isMobile && setDragging(true),
+    onDragEnd:     () => { setDragging(false); setHoveredWall(null); },
   };
 
   return (
@@ -256,17 +230,19 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
       className="w-screen h-screen overflow-hidden relative"
       style={{ background: BG }}
     >
-      {/* ── Shared perspective room background ────────────────────────────────── */}
-      <Grid3D position="absolute" opacity={0.75} backWallReveal={1} />
+      {/* ── Perspective room SVG background ──────────────────────────────────── */}
+      <Grid3D position="absolute" opacity={0.75} />
 
-      {/* ── Trapezoid wall overlays (z-layer above SVG, below header) ─────────── */}
-      {!isMobile && WALLS.map(({ id, label, primary }) => (
+      {/* ── Trapezoid wall overlays ───────────────────────────────────────────── */}
+      {!isMobile && WALL_DEFS.map(({ id, label, primary }) => (
         <WallOverlay
           key={id}
           wallId={id}
           label={label}
+          clipPath={CP[id]}
           isDragTarget={hoveredWall === id}
           isPrimary={primary}
+          BW={BW}
           dragHandlers={wallDragHandlers(id)}
         >
           {windowsOnWall(id).map((w) => (
@@ -277,13 +253,15 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
         </WallOverlay>
       ))}
 
-      {/* ── Mobile: all windows flat in back wall area ────────────────────────── */}
+      {/* ── Mobile: all windows in back wall area ────────────────────────────── */}
       {isMobile && (
         <div
           className="absolute flex flex-col gap-3 p-4 overflow-y-auto"
           style={{
-            top: `${BW.y1}%`, left: `${BW.x1}%`,
-            width: `${BW.x2 - BW.x1}%`, height: `${BW.y2 - BW.y1}%`,
+            top:    `${BW.y1}%`,
+            left:   `${BW.x1}%`,
+            width:  `${BW.x2 - BW.x1}%`,
+            height: `${BW.y2 - BW.y1}%`,
           }}
         >
           {windows.map((w) => (
