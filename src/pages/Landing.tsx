@@ -19,9 +19,9 @@ export default function Landing() {
     startsOnDashboard ? "dashboard" : "landing"
   );
 
-  // Back wall reveal: 0 = hidden, 1 = fully revealed
-  const revealMotion = useMotionValue(startsOnDashboard ? 1 : 0);
-  const [backWallReveal, setBackWallReveal] = useState(startsOnDashboard ? 1 : 0);
+  // Back wall reveal: starts at 1 (grid always visible on landing), portal transition keeps it 1
+  const revealMotion = useMotionValue(1);
+  const [backWallReveal, setBackWallReveal] = useState(1);
 
   // Keep backWallReveal state in sync with motion value
   const animRef = useRef<ReturnType<typeof animate> | null>(null);
@@ -66,9 +66,9 @@ export default function Landing() {
     setTransitionState("returning");
     window.history.replaceState(null, "", "/");
 
-    // Reset back wall reveal
+    // Keep back wall grid visible on return
     if (animRef.current) animRef.current.stop();
-    animRef.current = animate(revealMotion, 0, { duration: 0.4, ease: "easeIn" });
+    revealMotion.set(1);
 
     setTimeout(() => setTransitionState("landing"), 950);
   };
@@ -213,17 +213,7 @@ export default function Landing() {
               </AnimatePresence>
             </motion.div>
 
-            {/* ── Tap hint ─────────────────────────────────────────────────── */}
-            <motion.p
-              className="absolute bottom-10 inset-x-0 text-center text-xs font-mono tracking-widest uppercase pointer-events-none"
-              style={{ color: `${NODE_COLOR}44` }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: stage >= 3 ? 1 : 0 }}
-              transition={{ duration: 1, delay: 0.4 }}
-            >
-              tap to enter
-            </motion.p>
-          </motion.div>
+                </motion.div>
         )}
       </AnimatePresence>
 
