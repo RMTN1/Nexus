@@ -1,167 +1,153 @@
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useWindowSize } from "@/hooks/use-window-size";
+import {
+  computeGeometry,
+  buildBackWallLines,
+  buildFloorLines,
+  buildCeilingLines,
+  buildLeftLines,
+  buildRightLines,
+  type GridLine,
+} from "@/lib/room-geometry";
 
-// ── Geometry constants (SVG viewBox 0 0 100 100 space) ────────────────────────
-// Vanishing point = exact screen center → horizon at 50%
-export const VP = { x: 50, y: 50 };
+// ── Color tokens ──────────────────────────────────────────────────────────────
+const LINE     = "rgba(96,165,250,0.15)";
+const LINE_BW  = "rgba(96,165,250,0.30)";
+const EDGE     = "rgba(96,165,250,0.50)";
+const GLOW_BW  = "rgba(96,165,250,1.00)";
+const GLOW_W   = "rgba(96,165,250,0.70)";
 
-// Back wall rectangle (exported so WireframeRoom can share the same geometry)
-export const BW = { x1: 28, y1: 22, x2: 72, y2: 78 };
-
-// Screen corners
-const S = { x1: 0, y1: 0, x2: 100, y2: 100 };
-
-// Grid line count per surface
-const N = 9;
-
-// Brand accent
-const LINE    = "rgba(96,165,250,0.15)";   // #60a5fa faint
-const LINE_BW = "rgba(96,165,250,0.28)";   // back wall brighter
-const EDGE    = "rgba(96,165,250,0.45)";   // corner edges
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Linear interpolation between two 2-D points */
-function lerp2(ax: number, ay: number, bx: number, by: number, t: number) {
-  return { x: ax + (bx - ax) * t, y: ay + (by - ay) * t };
-}
-
-/** Generate floor depth-lines: from bottom screen edge to back-wall bottom edge */
-function floorDepthLines() {
-  const lines: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const bx = S.x1 + (S.x2 - S.x1) * t;
-    const wx = BW.x1 + (BW.x2 - BW.x1) * t;
-    lines.push(`M${bx},${S.y2} L${wx},${BW.y2}`);
-  }
-  return lines;
-}
-
-/** Generate floor horizontal lines */
-function floorHorizLines() {
-  const lines: string[] = [];
-  for (let i = 1; i < N; i++) {
-    const t = i / N;
-    const L = lerp2(S.x1, S.y2, BW.x1, BW.y2, t);
-    const R = lerp2(S.x2, S.y2, BW.x2, BW.y2, t);
-    lines.push(`M${L.x},${L.y} L${R.x},${R.y}`);
-  }
-  return lines;
-}
-
-/** Generate ceiling depth-lines */
-function ceilDepthLines() {
-  const lines: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const bx = S.x1 + (S.x2 - S.x1) * t;
-    const wx = BW.x1 + (BW.x2 - BW.x1) * t;
-    lines.push(`M${bx},${S.y1} L${wx},${BW.y1}`);
-  }
-  return lines;
-}
-
-/** Generate ceiling horizontal lines */
-function ceilHorizLines() {
-  const lines: string[] = [];
-  for (let i = 1; i < N; i++) {
-    const t = i / N;
-    const L = lerp2(S.x1, S.y1, BW.x1, BW.y1, t);
-    const R = lerp2(S.x2, S.y1, BW.x2, BW.y1, t);
-    lines.push(`M${L.x},${L.y} L${R.x},${R.y}`);
-  }
-  return lines;
-}
-
-/** Generate left-wall depth-lines */
-function leftDepthLines() {
-  const lines: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const sy = S.y1 + (S.y2 - S.y1) * t;
-    const wy = BW.y1 + (BW.y2 - BW.y1) * t;
-    lines.push(`M${S.x1},${sy} L${BW.x1},${wy}`);
-  }
-  return lines;
-}
-
-/** Generate left-wall horizontal lines */
-function leftHorizLines() {
-  const lines: string[] = [];
-  for (let i = 1; i < N; i++) {
-    const t = i / N;
-    const T = lerp2(S.x1, S.y1, BW.x1, BW.y1, t);
-    const B = lerp2(S.x1, S.y2, BW.x1, BW.y2, t);
-    lines.push(`M${T.x},${T.y} L${B.x},${B.y}`);
-  }
-  return lines;
-}
-
-/** Generate right-wall depth-lines */
-function rightDepthLines() {
-  const lines: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const sy = S.y1 + (S.y2 - S.y1) * t;
-    const wy = BW.y1 + (BW.y2 - BW.y1) * t;
-    lines.push(`M${S.x2},${sy} L${BW.x2},${wy}`);
-  }
-  return lines;
-}
-
-/** Generate right-wall horizontal lines */
-function rightHorizLines() {
-  const lines: string[] = [];
-  for (let i = 1; i < N; i++) {
-    const t = i / N;
-    const T = lerp2(S.x2, S.y1, BW.x2, BW.y1, t);
-    const B = lerp2(S.x2, S.y2, BW.x2, BW.y2, t);
-    lines.push(`M${T.x},${T.y} L${B.x},${B.y}`);
-  }
-  return lines;
-}
-
-/** Back wall grid */
-const BW_COLS = 7;
-const BW_ROWS = 7;
-
-function backWallGrid() {
-  const lines: string[] = [];
-  for (let i = 0; i <= BW_COLS; i++) {
-    const x = BW.x1 + (BW.x2 - BW.x1) * (i / BW_COLS);
-    lines.push(`M${x},${BW.y1} L${x},${BW.y2}`);
-  }
-  for (let j = 0; j <= BW_ROWS; j++) {
-    const y = BW.y1 + (BW.y2 - BW.y1) * (j / BW_ROWS);
-    lines.push(`M${BW.x1},${y} L${BW.x2},${y}`);
-  }
-  return lines;
-}
-
-// Pre-compute all paths
-const FLOOR_LINES   = [...floorDepthLines(), ...floorHorizLines()];
-const CEIL_LINES    = [...ceilDepthLines(),  ...ceilHorizLines()];
-const LEFT_LINES    = [...leftDepthLines(),  ...leftHorizLines()];
-const RIGHT_LINES   = [...rightDepthLines(), ...rightHorizLines()];
-const BW_GRID_LINES = backWallGrid();
-
-// ── Room SVG background ───────────────────────────────────────────────────────
+// ── Grid3D props ──────────────────────────────────────────────────────────────
 
 interface Grid3DProps {
   opacity?: number;
   position?: "fixed" | "absolute";
-  backWallReveal?: number;
+  /** When true, triggers the grid activation glow-wave from the VP */
+  activated?: boolean;
 }
+
+// ── Glow delay helpers ────────────────────────────────────────────────────────
+
+/** Pixel-space distance from a viewBox point to the VP (50,50), given viewport */
+function distFromVP(midX: number, midY: number, vw: number, vh: number): number {
+  const px = (midX / 100) * vw - vw / 2;
+  const py = (midY / 100) * vh - vh / 2;
+  return Math.sqrt(px * px + py * py);
+}
+
+// ── Animated line components ──────────────────────────────────────────────────
+
+interface BWLineProps {
+  line: GridLine;
+  delay: number;
+  activated: boolean;
+  activationKey: number;
+}
+
+function BWLine({ line, delay, activated, activationKey }: BWLineProps) {
+  return (
+    <motion.path
+      key={activationKey}
+      d={line.d}
+      fill="none"
+      strokeWidth={0.20}
+      animate={
+        activated
+          ? {
+              stroke: [LINE_BW, GLOW_BW, LINE_BW],
+              strokeWidth: [0.20, 0.55, 0.20],
+            }
+          : { stroke: LINE_BW, strokeWidth: 0.20 }
+      }
+      transition={
+        activated
+          ? { duration: 1.0, delay, ease: "easeOut" }
+          : { duration: 0 }
+      }
+      style={{ stroke: LINE_BW }}
+    />
+  );
+}
+
+interface PerspLineProps {
+  line: GridLine;
+  delay: number;
+  activated: boolean;
+  activationKey: number;
+}
+
+function PerspLine({ line, delay, activated, activationKey }: PerspLineProps) {
+  return (
+    <motion.path
+      key={activationKey}
+      d={line.d}
+      fill="none"
+      strokeWidth={0.18}
+      animate={
+        activated
+          ? {
+              stroke: [LINE, GLOW_W, LINE],
+              strokeWidth: [0.18, 0.45, 0.18],
+            }
+          : { stroke: LINE, strokeWidth: 0.18 }
+      }
+      transition={
+        activated
+          ? { duration: 0.8, delay, ease: "easeOut" }
+          : { duration: 0 }
+      }
+      style={{ stroke: LINE }}
+    />
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function Grid3D({
   opacity = 1,
   position = "fixed",
-  backWallReveal = 1,
+  activated = false,
 }: Grid3DProps) {
-  const bwCx = (BW.x1 + BW.x2) / 2;
-  const bwCy = (BW.y1 + BW.y2) / 2;
-  const maxR = Math.sqrt((BW.x2 - bwCx) ** 2 + (BW.y2 - bwCy) ** 2) * 1.05;
-  const revealR = backWallReveal * maxR;
+  const { vw, vh } = useWindowSize();
+  const { BW, VP, cols, rows } = useMemo(
+    () => computeGeometry(vw, vh),
+    [vw, vh]
+  );
+
+  // activationKey increments on each new activation so framer re-runs animation
+  const [activationKey, setActivationKey] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (activated && !isAnimating) {
+      setActivationKey((k) => k + 1);
+      setIsAnimating(true);
+      // Reset after animation completes (longest delay ~0.5s + duration 1.0s)
+      const t = setTimeout(() => setIsAnimating(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [activated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Build all line arrays ──────────────────────────────────────────────────
+  const bwLines    = useMemo(() => buildBackWallLines(BW, cols, rows), [BW, cols, rows]);
+  const floorLines = useMemo(() => buildFloorLines(BW, cols, rows),    [BW, cols, rows]);
+  const ceilLines  = useMemo(() => buildCeilingLines(BW, cols, rows),  [BW, cols, rows]);
+  const leftLines  = useMemo(() => buildLeftLines(BW, cols, rows),     [BW, cols, rows]);
+  const rightLines = useMemo(() => buildRightLines(BW, cols, rows),    [BW, cols, rows]);
+
+  // ── Compute glow delays for BW lines ──────────────────────────────────────
+  const bwDistances = useMemo(
+    () => bwLines.map((l) => distFromVP(l.midX, l.midY, vw, vh)),
+    [bwLines, vw, vh]
+  );
+  const bwMaxDist = Math.max(...bwDistances, 1);
+
+  // ── Compute glow delays for perspective lines (BW endpoint distance) ───────
+  // Each perspective line's BW endpoint is closest to VP; animate from there outward.
+  // Use midpoint distance as a proxy: closer midpoint = BW endpoint closer = lower delay.
+  const perspDelayOf = (line: GridLine) =>
+    (distFromVP(line.midX, line.midY, vw, vh) / bwMaxDist) * 0.4;
 
   return (
     <div
@@ -174,64 +160,114 @@ export default function Grid3D({
         xmlns="http://www.w3.org/2000/svg"
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
       >
-        <defs>
-          <clipPath id="bw-reveal-clip">
-            <circle cx={bwCx} cy={bwCy} r={revealR} />
-          </clipPath>
-        </defs>
-
-        {/* Floor */}
-        {FLOOR_LINES.map((d, i) => (
-          <path key={`fl-${i}`} d={d} stroke={LINE} strokeWidth="0.18" fill="none" />
+        {/* ── Floor ─────────────────────────────────────────────────────────── */}
+        {floorLines.map((l, i) => (
+          <PerspLine
+            key={`fl-${i}`}
+            line={l}
+            delay={perspDelayOf(l)}
+            activated={isAnimating}
+            activationKey={activationKey}
+          />
         ))}
 
-        {/* Ceiling */}
-        {CEIL_LINES.map((d, i) => (
-          <path key={`cl-${i}`} d={d} stroke={LINE} strokeWidth="0.18" fill="none" />
+        {/* ── Ceiling ───────────────────────────────────────────────────────── */}
+        {ceilLines.map((l, i) => (
+          <PerspLine
+            key={`cl-${i}`}
+            line={l}
+            delay={perspDelayOf(l)}
+            activated={isAnimating}
+            activationKey={activationKey}
+          />
         ))}
 
-        {/* Left wall */}
-        {LEFT_LINES.map((d, i) => (
-          <path key={`lw-${i}`} d={d} stroke={LINE} strokeWidth="0.18" fill="none" />
+        {/* ── Left wall ─────────────────────────────────────────────────────── */}
+        {leftLines.map((l, i) => (
+          <PerspLine
+            key={`lw-${i}`}
+            line={l}
+            delay={perspDelayOf(l)}
+            activated={isAnimating}
+            activationKey={activationKey}
+          />
         ))}
 
-        {/* Right wall */}
-        {RIGHT_LINES.map((d, i) => (
-          <path key={`rw-${i}`} d={d} stroke={LINE} strokeWidth="0.18" fill="none" />
+        {/* ── Right wall ────────────────────────────────────────────────────── */}
+        {rightLines.map((l, i) => (
+          <PerspLine
+            key={`rw-${i}`}
+            line={l}
+            delay={perspDelayOf(l)}
+            activated={isAnimating}
+            activationKey={activationKey}
+          />
         ))}
 
-        {/* Room corner edge lines */}
-        <path d={`M0,0 L${BW.x1},${BW.y1}`}    stroke={EDGE} strokeWidth="0.30" fill="none" />
-        <path d={`M100,0 L${BW.x2},${BW.y1}`}   stroke={EDGE} strokeWidth="0.30" fill="none" />
-        <path d={`M100,100 L${BW.x2},${BW.y2}`} stroke={EDGE} strokeWidth="0.30" fill="none" />
-        <path d={`M0,100 L${BW.x1},${BW.y2}`}   stroke={EDGE} strokeWidth="0.30" fill="none" />
+        {/* ── Room corner edges (brighter) ──────────────────────────────────── */}
+        <path d={`M0,0 L${BW.x1},${BW.y1}`}      stroke={EDGE} strokeWidth="0.30" fill="none" />
+        <path d={`M100,0 L${BW.x2},${BW.y1}`}    stroke={EDGE} strokeWidth="0.30" fill="none" />
+        <path d={`M100,100 L${BW.x2},${BW.y2}`}  stroke={EDGE} strokeWidth="0.30" fill="none" />
+        <path d={`M0,100 L${BW.x1},${BW.y2}`}    stroke={EDGE} strokeWidth="0.30" fill="none" />
 
-        {/* Back wall outline */}
+        {/* ── Back wall outline ─────────────────────────────────────────────── */}
         <rect
           x={BW.x1} y={BW.y1}
           width={BW.x2 - BW.x1} height={BW.y2 - BW.y1}
           stroke={EDGE} strokeWidth="0.35" fill="none"
         />
 
-        {/* Back wall grid (always revealed) */}
-        <g clipPath="url(#bw-reveal-clip)">
-          {BW_GRID_LINES.map((d, i) => (
-            <path key={`bwg-${i}`} d={d} stroke={LINE_BW} strokeWidth="0.20" fill="none" />
-          ))}
-        </g>
+        {/* ── Back wall grid ────────────────────────────────────────────────── */}
+        {bwLines.map((l, i) => (
+          <BWLine
+            key={`bw-${i}`}
+            line={l}
+            delay={(bwDistances[i] / bwMaxDist) * 0.5}
+            activated={isAnimating}
+            activationKey={activationKey}
+          />
+        ))}
 
-        {/* Back wall ambient fill */}
+        {/* ── Back wall ambient fill ────────────────────────────────────────── */}
         <rect
           x={BW.x1} y={BW.y1}
           width={BW.x2 - BW.x1} height={BW.y2 - BW.y1}
-          fill="rgba(96,165,250,0.025)"
+          fill="rgba(96,165,250,0.022)"
         />
 
-        {/* Vanishing point dot */}
-        <circle cx={VP.x} cy={VP.y} r="0.6" fill="rgba(96,165,250,0.55)" />
+        {/* ── Radial pulse on activation ────────────────────────────────────── */}
+        {isAnimating && (
+          <motion.circle
+            key={`pulse-${activationKey}`}
+            cx={VP.x} cy={VP.y}
+            initial={{ r: 0, opacity: 0.9 }}
+            animate={{ r: 55, opacity: 0 }}
+            transition={{ duration: 0.85, ease: "easeOut" }}
+            stroke="rgba(96,165,250,0.85)"
+            strokeWidth="0.5"
+            fill="none"
+          />
+        )}
+
+        {/* ── Second pulse ring (slight delay) ─────────────────────────────── */}
+        {isAnimating && (
+          <motion.circle
+            key={`pulse2-${activationKey}`}
+            cx={VP.x} cy={VP.y}
+            initial={{ r: 0, opacity: 0.5 }}
+            animate={{ r: 55, opacity: 0 }}
+            transition={{ duration: 0.85, delay: 0.18, ease: "easeOut" }}
+            stroke="rgba(96,165,250,0.50)"
+            strokeWidth="0.25"
+            fill="none"
+          />
+        )}
+
+        {/* ── Vanishing point dot ───────────────────────────────────────────── */}
+        <circle cx={VP.x} cy={VP.y} r="0.6" fill="rgba(96,165,250,0.60)" />
       </svg>
 
-      {/* Breathing glow */}
+      {/* ── Breathing glow at VP ──────────────────────────────────────────────── */}
       <motion.div
         animate={{ opacity: [0.3, 0.7, 0.3] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}

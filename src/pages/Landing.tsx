@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Grid3D from "@/components/Grid3D";
 import WireframeRoom from "@/components/WireframeRoom";
 
@@ -10,49 +10,30 @@ const NODE_COLOR = "#60a5fa";
 type TransitionState = "landing" | "orb-expanding" | "portal" | "dashboard" | "returning";
 
 export default function Landing() {
-  // Detect if we're navigating directly to /home (refresh or direct URL)
   const startsOnDashboard = window.location.pathname.startsWith("/home");
 
-  const [orbHovered, setOrbHovered] = useState(false);
-  const [stage, setStage] = useState(startsOnDashboard ? 3 : 0);
+  const [orbHovered,   setOrbHovered]   = useState(false);
+  const [orbActivated, setOrbActivated] = useState(false);
+  const [stage,        setStage]        = useState(startsOnDashboard ? 3 : 0);
   const [transitionState, setTransitionState] = useState<TransitionState>(
     startsOnDashboard ? "dashboard" : "landing"
   );
 
-  // Back wall reveal: starts at 1 (grid always visible on landing), portal transition keeps it 1
-  const revealMotion = useMotionValue(1);
-  const [backWallReveal, setBackWallReveal] = useState(1);
-
-  // Keep backWallReveal state in sync with motion value
-  const animRef = useRef<ReturnType<typeof animate> | null>(null);
-
-  // Cinematic entry
+  // Cinematic entry sequence
   useEffect(() => {
     if (startsOnDashboard) return;
     const t = [
-      setTimeout(() => setStage(1), 100),   // grid materialises
-      setTimeout(() => setStage(2), 800),   // node appears
-      setTimeout(() => setStage(3), 1400),  // hint appears
+      setTimeout(() => setStage(1), 100),
+      setTimeout(() => setStage(2), 800),
+      setTimeout(() => setStage(3), 1400),
     ];
     return () => t.forEach(clearTimeout);
-  }, []);
-
-  // Sync motion value to state for Grid3D
-  useEffect(() => {
-    const unsub = revealMotion.on("change", (v) => setBackWallReveal(v));
-    return unsub;
-  }, [revealMotion]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOrbClick = () => {
     if (transitionState !== "landing") return;
     setTransitionState("orb-expanding");
-
-    // Animate back wall reveal: 0 → 1 over 700ms
-    if (animRef.current) animRef.current.stop();
-    animRef.current = animate(revealMotion, 1, {
-      duration: 0.7,
-      ease: [0.25, 0.1, 0.25, 1],
-    });
+    setOrbActivated(true); // triggers grid glow wave + keeps full orb glow
 
     setTimeout(() => setTransitionState("portal"), 650);
     setTimeout(() => {
@@ -65,26 +46,27 @@ export default function Landing() {
     if (transitionState !== "dashboard") return;
     setTransitionState("returning");
     window.history.replaceState(null, "", "/");
-
-    // Keep back wall grid visible on return
-    if (animRef.current) animRef.current.stop();
-    revealMotion.set(1);
-
+    setOrbActivated(false);
     setTimeout(() => setTransitionState("landing"), 950);
   };
 
   const isLandingVisible   = transitionState === "landing" || transitionState === "orb-expanding";
-  const isDashboardVisible = transitionState === "portal" || transitionState === "dashboard" || transitionState === "returning";
+  const isDashboardVisible = transitionState === "portal"  || transitionState === "dashboard" || transitionState === "returning";
+
+  // Orb glow: full glow on hover OR after activation (never dims post-click)
+  const orbFilter = (orbHovered || orbActivated)
+    ? `drop-shadow(0 0 18px ${NODE_COLOR}) drop-shadow(0 0 40px ${NODE_COLOR}66)`
+    : `drop-shadow(0 0 8px ${NODE_COLOR}88)`;
 
   return (
     <div
       className="relative w-full min-h-screen overflow-hidden"
       style={{ background: "#1C1C1E" }}
     >
-      {/* ── Shared perspective room background — always visible ───────────────── */}
-      <Grid3D position="absolute" backWallReveal={backWallReveal} />
+      {/* ── Shared perspective room — always visible ───────────────────────────── */}
+      <Grid3D position="absolute" activated={orbActivated} />
 
-      {/* ── Landing content (node + hint) ─────────────────────────────────────── */}
+      {/* ── Landing content ────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isLandingVisible && (
           <motion.div
@@ -92,7 +74,7 @@ export default function Landing() {
             className="absolute inset-0"
             exit={{ opacity: 0, transition: { duration: 0.3, ease: "easeOut" } }}
           >
-            {/* ── Central Network Node (at vanishing point = center) ─────────── */}
+            {/* ── Central Network Node ───────────────────────────────────────── */}
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
               initial={{ opacity: 0, scale: 0.6 }}
@@ -104,15 +86,12 @@ export default function Landing() {
                 onHoverStart={() => setOrbHovered(true)}
                 onHoverEnd={() => setOrbHovered(false)}
                 whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.92 }}
                 disabled={transitionState !== "landing"}
                 className="relative w-28 h-28 md:w-36 md:h-36 cursor-pointer focus:outline-none"
                 style={{
                   background: "none",
                   border: "none",
-                  filter: orbHovered
-                    ? `drop-shadow(0 0 18px ${NODE_COLOR}) drop-shadow(0 0 40px ${NODE_COLOR}66)`
-                    : `drop-shadow(0 0 8px ${NODE_COLOR}88)`,
+                  filter: orbFilter,
                   transition: "filter 0.4s ease",
                 }}
                 aria-label="Enter Nexus"
@@ -133,20 +112,16 @@ export default function Landing() {
                     </filter>
                   </defs>
 
-                  {/* Animated ripple rings */}
+                  {/* Ripple rings */}
                   <motion.circle
                     cx="50" cy="50"
-                    stroke={NODE_COLOR}
-                    strokeWidth="1.5"
-                    fill="none"
+                    stroke={NODE_COLOR} strokeWidth="1.5" fill="none"
                     animate={{ r: [11, 32], opacity: [0.6, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
                   />
                   <motion.circle
                     cx="50" cy="50"
-                    stroke={NODE_COLOR}
-                    strokeWidth="1"
-                    fill="none"
+                    stroke={NODE_COLOR} strokeWidth="1" fill="none"
                     animate={{ r: [11, 44], opacity: [0.4, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
                   />
@@ -175,10 +150,8 @@ export default function Landing() {
                   <circle cx="80" cy="80" r="3.5" fill={NODE_COLOR} opacity="0.65" />
                   <circle cx="20" cy="20" r="3.5" fill={NODE_COLOR} opacity="0.65" />
 
-                  {/* Central ring */}
+                  {/* Central ring + dot */}
                   <circle cx="50" cy="50" r="11" stroke={NODE_COLOR} strokeWidth="2.5" filter="url(#node-glow)" />
-
-                  {/* Central fill dot */}
                   <circle cx="50" cy="50" r="4.5" fill={NODE_COLOR} filter="url(#node-glow)" />
                 </svg>
               </motion.button>
@@ -212,12 +185,11 @@ export default function Landing() {
                 )}
               </AnimatePresence>
             </motion.div>
-
-                </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Dashboard ────────────────────────────────────────────────────────── */}
+      {/* ── Dashboard ──────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isDashboardVisible && (
           <motion.div
