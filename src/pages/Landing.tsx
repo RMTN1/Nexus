@@ -64,7 +64,7 @@ export default function Landing() {
       style={{ background: "#1C1C1E" }}
     >
       {/* ── Shared perspective room — always visible ───────────────────────────── */}
-      <Grid3D position="absolute" activated={orbActivated} />
+      <Grid3D position="absolute" variant="dim" activated={orbActivated} />
 
       {/* ── Landing content ────────────────────────────────────────────────────── */}
       <AnimatePresence>
