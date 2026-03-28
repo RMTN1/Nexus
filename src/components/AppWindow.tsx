@@ -173,25 +173,26 @@ export default function AppWindow({
     { edge: "sw", cursor: "sw-resize", style: { bottom: 0, left: 0,   width: 10, height: 10 } },
   ];
 
+  // On mobile: render as a normal flow element (no absolute positioning)
+  const floatingStyle: React.CSSProperties = isMobile
+    ? { position: "relative", width: "100%", minHeight: MIN_H }
+    : { position: "absolute", width: size.w, height: size.h };
+
   return (
     <motion.div
-      layoutId={id}
-      className="absolute flex flex-col rounded-md overflow-visible select-none pointer-events-auto"
+      className="flex flex-col rounded-md overflow-visible select-none pointer-events-auto"
       style={{
-        x,
-        y,
-        width:     isMobile ? "90vw" : size.w,
-        height:    isMobile ? undefined : size.h,
-        minWidth:  MIN_W,
-        minHeight: MIN_H,
-        background:    "rgba(18,18,20,0.92)",
-        border:        `1px solid ${borderColor}`,
+        ...floatingStyle,
+        ...(isMobile ? {} : { x, y }),
+        minWidth: MIN_W,
+        background:     "rgba(18,18,20,0.92)",
+        border:         `1px solid ${borderColor}`,
         backdropFilter: "blur(16px)",
         boxShadow,
         zIndex: isDragging || isResizing ? 9000 : isActive ? 500 : 100,
         transition: "border-color 0.15s, box-shadow 0.2s",
       }}
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 300, damping: 28 }}
       onMouseEnter={() => setIsHovered(true)}

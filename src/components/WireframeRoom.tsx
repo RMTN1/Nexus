@@ -290,41 +290,33 @@ export default function WireframeRoom({ onBack }: WireframeRoomProps) {
         );
       })}
 
-      {/* ── Layer 2: Floating windows — above cockpit, below header ──────────── */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 50 }}
-      >
-        {windows.map((w, i) => (
-          <AppWindow
-            key={w.id}
-            {...w}
-            stackIndex={i}
-            {...sharedWindowProps}
-          >
-            <PlaceholderContent description={w.description} />
-          </AppWindow>
-        ))}
+      {/* ── Layer 2: Floating windows (desktop only) ─────────────────────────── */}
+      {!isMobile && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ zIndex: 50 }}
+        >
+          {windows.map((w, i) => (
+            <AppWindow key={w.id} {...w} stackIndex={i} {...sharedWindowProps}>
+              <PlaceholderContent description={w.description} />
+            </AppWindow>
+          ))}
+        </div>
+      )}
 
-        {/* Mobile: simple stacked layout in back wall area */}
-        {isMobile && (
-          <div
-            className="absolute flex flex-col gap-3 p-4 overflow-y-auto pointer-events-auto"
-            style={{
-              top:    `${BW.y1}%`,
-              left:   `${BW.x1}%`,
-              width:  `${BW.x2 - BW.x1}%`,
-              height: `${BW.y2 - BW.y1}%`,
-            }}
-          >
-            {windows.map((w, i) => (
-              <AppWindow key={w.id} {...w} stackIndex={i} {...sharedWindowProps}>
-                <PlaceholderContent description={w.description} />
-              </AppWindow>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* ── Layer 2 (mobile): stacked list below back wall top edge ────────────── */}
+      {isMobile && (
+        <div
+          className="absolute flex flex-col gap-3 p-4 overflow-y-auto"
+          style={{ zIndex: 50, top: `${BW.y1}%`, left: 0, right: 0, bottom: 0 }}
+        >
+          {windows.map((w, i) => (
+            <AppWindow key={w.id} {...w} stackIndex={i} {...sharedWindowProps}>
+              <PlaceholderContent description={w.description} />
+            </AppWindow>
+          ))}
+        </div>
+      )}
 
       {/* ── Layer 3: Header ───────────────────────────────────────────────────── */}
       <motion.header
